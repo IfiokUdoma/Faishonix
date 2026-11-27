@@ -396,10 +396,12 @@ footer{background:var(--dark);color:rgba(255,255,255,0.6);padding:48px;display:g
     <p>Scan below to prefill estimates, then check them with a tape. Enter any missing measurements in centimetres.</p>
     <form id="custom-fit-form" class="vendor-form">
       <div id="custom-fit-fields"></div>
+      <label id="fit-photo-consent" class="fit-consent" hidden><input type="checkbox" name="photoConsent"> Use my front scan photo to automatically generate garment and outfit previews with FASHN.</label>
       <label class="fit-consent"><input type="checkbox" name="consent" required> Share these measurements and my account email with the vendor for this request.</label>
       <button class="btn-dark" type="submit">Send fit request</button>
     </form>
     <p id="custom-fit-status" role="status"></p>
+    <section id="fit-preview" hidden></section>
   </section>
   <div class="scanner-layout">
     <div>
@@ -828,9 +830,9 @@ const SHOE_DATA=[
 // the function was defined.
 // ═══════════════════════════════════════════════════════════════
 let videoModeDetector;
-const vision = initVisionSystem();
+let vision = initVisionSystem();
 async function initVisionSystem() {
-  await new Promise(resolve => document.addEventListener('DOMContentLoaded', resolve, {once:true}));
+  if(document.readyState==='loading')await new Promise(resolve => document.addEventListener('DOMContentLoaded', resolve, {once:true}));
   try {
     const base = '/vision';
     const {FilesetResolver, PoseLandmarker} = await import(base + '/vision_bundle.mjs');
@@ -1275,7 +1277,11 @@ async function startScan(view){
   }
 
   if (!cameraAvailable()) { showToast('Open Faishonix over HTTPS in a browser with camera access.'); return; }
-  if (!await vision) { showToast('Body scanner unavailable. You can still use the lookup table estimate.'); return; }
+  if(!await vision){
+    setStatus('loading','Retrying the body scan model…');
+    vision=initVisionSystem();
+    if(!await vision){showToast('Body scanner unavailable. You can still use the lookup table estimate.');return;}
+  }
   closeCapture();
   stopCamera();
   fcieLoopActive=false;
@@ -1417,6 +1423,7 @@ async function startScan(view){
 
   const oc=overlayCanvas;
   let lastFrameTime=-1;
+  let detectionErrors=0;
   const sample=document.createElement('canvas');
   sample.width=160;
   sample.height=120;
@@ -1446,8 +1453,15 @@ async function startScan(view){
         lms=result.landmarks?.[0]||null;
         if(view!=='tryon')silhouette=silhouetteMeasures(result.segmentationMasks?.[0],lms);
       });
+      detectionErrors=0;
     }catch(e){
-      console.warn('[Faishonix] VIDEO detect error:',e.message);
+      detectionErrors++;
+      if(detectionErrors>=8){
+        closeCapture();
+        setStatus('error','The pose tracker stopped. Reopen the scanner or use the lookup estimate.');
+        showToast('The pose tracker could not process the camera feed.');
+        return;
+      }
     }
 
 
@@ -1611,6 +1625,7 @@ function lookupShoe(len,gender){
   return m;
 }
 
+const footWidths={left:null,right:null};
 let shoeResultLocked=false;
 function runShoeScan(){
   if(shoeResultLocked)return;
@@ -1627,14 +1642,14 @@ function runShoeScan(){
     const size=lookupShoe(length,gender);
     return ['NG','UK','EU','US'].map((label,i)=>`<div class="meas-item"><div class="meas-val">${size[i+3]}</div><div class="meas-label">${label}${shoeAsym?' · '+feet[index]:''}</div></div>`).join('');
   }).join('');
-  document.getElementById('shoe-meas-text').textContent=sizes.map((length,i)=>`${shoeAsym?feet[i]+': ':''}${length} cm`).join(' · ');
+  document.getElementById('shoe-meas-text').textContent=sizes.map((length,i)=>`${shoeAsym?feet[i]+': ':''}${length} cm long${footWidths[feet[i]]?' × '+footWidths[feet[i]]+' cm wide':''}`).join(' · ');
   document.getElementById('shoe-fit-note').textContent='General size guide. Check the brand’s foot-length chart and fit to the larger foot.';
   document.getElementById('shoe-placeholder').style.display='none';
   document.getElementById('shoe-results-panel').classList.add('show');
   document.getElementById('shoe-results-panel').scrollIntoView({block:'nearest'});
   shoeResultLocked=true;
   document.getElementById('shoe-btn').disabled=true;
-  saveScan({item:'shoes',measurements:{left:sizes[0],right:sizes[1]??null,size:lookupShoe(Math.max(...sizes),gender)[5]}});
+  saveScan({item:'shoes',measurements:{left:sizes[0],right:sizes[1]??null,leftWidth:footWidths.left,rightWidth:shoeAsym?footWidths.right:null,size:lookupShoe(Math.max(...sizes),gender)[5]}});
 }
 
 function handleGarment(e){

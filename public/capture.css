@@ -73,3 +73,9 @@
 #custom-fit .fit-consent input { width:auto; }
 .fit-request-card { margin-top:.7rem; }
 .fit-request-card button { margin:.5rem .4rem 0 0; }
+#fit-preview { margin-top:1.2rem; padding:1rem; border:1px solid var(--border); border-radius:var(--radius); }
+.fit-visuals { display:grid; grid-template-columns:repeat(auto-fit,minmax(min(170px,100%),1fr)); gap:.75rem; }
+.fit-visuals figure { margin:.5rem 0 0; }
+.fit-visuals img { width:100%; height:min(52vh,480px); object-fit:contain; background:var(--cream); border-radius:6px; }
+.fit-visuals figcaption { margin:.4rem 0; }
+.fit-visuals a { text-decoration:underline; }

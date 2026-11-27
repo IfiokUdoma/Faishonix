@@ -1,9 +1,10 @@
+import {hostedTryOn,hostedTryOnEnabled} from './hosted-try-on.mjs';
 import {createClient} from '@supabase/supabase-js';
 import {styleSuggestions} from '../style.mjs';
 
 const bucket='vendor-photos';
 const researchVersion='0513734a452173b8173e907e3a59d19a36266e55b48528559432bd21c7d7e985';
-const measurements=['chest','waist','hips','shoulder','arm','inseam','neck','leftArm','rightArm','leftInseam','rightInseam','left','right'];
+const measurements=['chest','waist','hips','shoulder','arm','inseam','neck','leftArm','rightArm','leftInseam','rightInseam','left','right','leftWidth','rightWidth'];
 const imagePattern=/^data:image\/(?:jpeg|png|webp);base64,[A-Za-z0-9+/]+={0,2}$/;
 const uuid=/^[a-f0-9]{8}-(?:[a-f0-9]{4}-){3}[a-f0-9]{12}$/i;
 const jobOwners=new Map();
@@ -188,18 +189,36 @@ for(const category of ['jacket','sweater','coat','traditional']){
 
 async function fitRequests(request,db,user){
   if(request.method==='GET'){
-    const {data,error}=await db.from('fit_requests').select('id,customer_id,vendor_id,customer_email,product_id,measurements,status,created_at,vendor_products(name,brand)')
+    const {data,error}=await db.from('fit_requests').select('id,customer_id,vendor_id,customer_email,product_id,measurements,status,created_at,vendor_products(name,brand),fit_request_progress(status,tracking_reference)')
       .order('created_at',{ascending:false}).limit(100);
     if(error)throw error;
-    return json({requests:data.map(row=>({...row,incoming:row.vendor_id===user.id}))});
+    return json({requests:data.map(row=>{
+      const {fit_request_progress:progress,...request}=row;
+      const stages=['delivered','shipped','in_production'];
+      return {...request,incoming:row.vendor_id===user.id,
+        status:stages.find(stage=>progress.some(event=>event.status===stage))||row.status,
+        tracking_reference:progress.find(event=>event.status==='shipped')?.tracking_reference||null};
+    })});
   }
   const input=await readJson(request,4096);
   if(request.method==='PATCH'){
-    if(!uuid.test(input?.id||'')||!['accepted','declined'].includes(input?.status))return json({error:'Choose accept or decline.'},400);
-    const {data,error}=await db.from('fit_requests').update({status:input.status}).eq('id',input.id).eq('vendor_id',user.id)
-      .eq('status','requested').select('id').maybeSingle();
+    if(!uuid.test(input?.id||'')||!['accepted','declined','in_production','shipped','delivered'].includes(input?.status)){
+      return json({error:'Invalid order update.'},400);
+    }
+    if(['accepted','declined'].includes(input.status)){
+      const {data,error}=await db.from('fit_requests').update({status:input.status})
+        .eq('id',input.id).eq('vendor_id',user.id).eq('status','requested').select('id').maybeSingle();
+      if(error)throw error;
+      return data?json({ok:true}):json({error:'Order unavailable or already updated.'},409);
+    }
+    const reference=typeof input.trackingReference==='string'?input.trackingReference.trim():'';
+    if(input.status==='shipped'&&(!reference||reference.length>120))return json({error:'Enter a delivery or tracking reference.'},400);
+    const {error}=await db.from('fit_request_progress').insert({
+      request_id:input.id,status:input.status,tracking_reference:input.status==='shipped'?reference:null
+    });
+    if(['23514','23505','42501'].includes(error?.code))return json({error:'Order unavailable, already updated, or out of sequence.'},409);
     if(error)throw error;
-    return data?json({ok:true}):json({error:'Request is unavailable or already decided.'},409);
+    return json({ok:true},201);
   }
   if(request.method!=='POST')return json({error:'Method not allowed.'},405);
   if(input?.consent!==true||!uuid.test(input?.productId||''))return json({error:'Select a garment and consent to share measurements.'},400);
@@ -341,7 +360,7 @@ export async function handle(request){
     const auth=await authenticated(request,client);
     let response;
     if(route==='/api/session'&&request.method==='GET'){
-      response=json({email:auth.user?.email||null,tryOnEnabled:Boolean(local&&process.env.REPLICATE_API_TOKEN&&process.env.TRY_ON_MODEL_VERSION===researchVersion)});
+      response=json({email:auth.user?.email||null,hostedTryOnEnabled:hostedTryOnEnabled(auth.user),tryOnEnabled:Boolean(local&&process.env.REPLICATE_API_TOKEN&&process.env.TRY_ON_MODEL_VERSION===researchVersion)});
     }else if(!auth.user){
       response=json({error:'Sign in to continue.'},401);
     }else if(route==='/api/scans'){
@@ -352,8 +371,10 @@ export async function handle(request){
       response=await fitRequests(request,auth.db,auth.user);
     }else if(route==='/api/vendor'){
       response=await vendorProducts(request,auth.db,auth.user);
-    }else if(/^\/api\/try-on(?:\/[a-z0-9]{12,64})?$/.test(route)){
-      response=await tryOn(request,new URL(route,url),local,auth.user);
+    }else if(/^\/api\/try-on(?:\/[A-Za-z0-9_.-]{12,512})?$/.test(route)){
+      response=hostedTryOnEnabled(auth.user)
+        ?await hostedTryOn(request,new URL(route,url),auth.user,auth.db,readJson,json)
+        :await tryOn(request,new URL(route,url),local,auth.user);
     }else response=json({error:'Endpoint not found.'},404);
     return auth.refreshed?sessionCookies(response,auth.refreshed,secure):response;
   }catch(error){

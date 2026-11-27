@@ -84,6 +84,8 @@ function updateShoeButton(){
   button.disabled=shoeResultLocked||!footCaptures.left||(shoeAsym&&!footCaptures.right);
 }
 
+const footEstimator=import('/foot-measure.mjs').catch(()=>null);
+
 async function startFootScan(side){
   closeCapture();
   const area=document.getElementById('shoe-'+side+'-area');
@@ -92,13 +94,14 @@ async function startFootScan(side){
   area.replaceChildren();
   const controls=captureControls;
   controls.style.display='flex';
-  controls.innerHTML='<p aria-live="polite">Hold the camera directly overhead with the full foot and A4 sheet visible.</p><button type="button" id="foot-photo" disabled>Take photo</button><label>Measured length (cm) <input id="foot-manual" type="number" min="20" max="35" step="0.1" inputmode="decimal"></label><button type="button" id="foot-save">Use length</button>';
+  controls.innerHTML='<p aria-live="polite">Place your foot on white A4 paper on a dark floor. Hold the camera straight above the paper. A dark sock helps the app see the outline.</p><button type="button" id="foot-photo" disabled>Take photo</button><label>Measured length (cm) <input id="foot-manual" type="number" min="20" max="35" step="0.1" inputmode="decimal"></label><button type="button" id="foot-save">Use length</button>';
   const status=controls.querySelector('p');
   const photo=document.getElementById('foot-photo');
   const manual=document.getElementById('foot-manual');
-  function accept(length,method){
+  function accept(length,method,width){
     if(!Number.isFinite(length)||length<20||length>35){status.textContent='Enter a foot length from 20 to 35 cm.';return;}
     footCaptures[side]=Math.round(length*10)/10;
+    footWidths[side]=Number.isFinite(width)?width:null;
     const preview=document.createElement('button');
     preview.className='btn-dark';
     preview.textContent=`${footCaptures[side]} cm · Remeasure`;
@@ -120,7 +123,7 @@ async function startFootScan(side){
   guide.className='foot-photo-guide';
   guide.setAttribute('aria-hidden','true');
   area.append(video,guide);
-  photo.onclick=()=>{
+  photo.onclick=async()=>{
     if(video.readyState<2||!video.videoWidth){status.textContent='Camera is warming up. Try again.';return;}
     const canvas=document.createElement('canvas');
     canvas.width=video.videoWidth;
@@ -138,7 +141,23 @@ async function startFootScan(side){
     photo.onclick=()=>startFootScan(side);
     const instructions=['Mark one end of the 29.7 cm paper edge.','Mark the other end of the same long edge.','Mark the back of your heel.','Mark the tip of your longest toe.'];
     const points=[];
-    status.textContent=instructions[0];
+    status.textContent='Checking the paper and foot outline…';
+    const estimator=await footEstimator;
+    if(captureDialog.dataset.session!==session)return;
+    const sample=document.createElement('canvas');
+    const factor=Math.min(1,320/Math.max(canvas.width,canvas.height));
+    sample.width=Math.round(canvas.width*factor);
+    sample.height=Math.round(canvas.height*factor);
+    const sampleContext=sample.getContext('2d',{willReadFrequently:true});
+    sampleContext.drawImage(canvas,0,0,sample.width,sample.height);
+    const automatic=estimator?.estimateFootOnA4(sampleContext.getImageData(0,0,sample.width,sample.height));
+    if(automatic){
+      manual.value=automatic.length.toFixed(1);
+      status.textContent='Detected '+automatic.length+' cm long × '+automatic.width+' cm wide. Review the length and tap Use length, or mark the paper and foot to recalibrate.';
+      document.getElementById('foot-save').onclick=()=>accept(manual.valueAsNumber,'Detected from A4 photo',manual.valueAsNumber===automatic.length?automatic.width:null);
+    }else{
+      status.textContent='Could not isolate an outline. '+instructions[0];
+    }
     canvas.onclick=event=>{
       const bounds=canvas.getBoundingClientRect();
       const x=(event.clientX-bounds.left)*canvas.width/bounds.width;
@@ -370,6 +389,11 @@ const fitList=document.getElementById('fit-request-list');
 const customFit=document.getElementById('custom-fit');
 const fitForm=document.getElementById('custom-fit-form');
 const fitFormStatus=document.getElementById('custom-fit-status');
+const fitPhotoConsent=document.getElementById('fit-photo-consent');
+const sequencePreview=document.getElementById('fit-preview');
+let previewGeneration=0;
+let previewedPhoto;
+
 let fitProduct=null;
 const fitLabels={...FL,garment_length:'Desired garment length'};
 
@@ -380,6 +404,12 @@ loadCategories(vendorForm.elements.category);
 
 function openCustomFit(product){
   fitProduct=product;
+  previewGeneration++;
+  previewedPhoto=null;
+  sequencePreview.hidden=true;
+  sequencePreview.replaceChildren();
+  fitForm.elements.photoConsent.checked=false;
+  fitPhotoConsent.hidden=!hostedTryOnAvailable;
   selectItem(product.category);
   document.getElementById('custom-fit-title').textContent=product.name+' · '+product.brand;
   const fields=new Set(ITEMS[product.category].fields);
@@ -409,6 +439,86 @@ function prefillCustomFit(category,result,fromPose){
   }
   fitFormStatus.textContent='Scan estimates are ready for review. Check them with a tape and fill in the remaining fields.';
   customFit.scrollIntoView({behavior:'smooth'});
+  continueFitWithPreview(category);
+}
+
+async function createHostedPreview(person,productId){
+  if(person.length>2_700_000){
+    const image=new Image();
+    image.src=person;
+    await image.decode();
+    const scale=Math.min(1,1200/Math.max(image.naturalWidth,image.naturalHeight));
+    const canvas=document.createElement('canvas');
+    canvas.width=Math.round(image.naturalWidth*scale);
+    canvas.height=Math.round(image.naturalHeight*scale);
+    canvas.getContext('2d').drawImage(image,0,0,canvas.width,canvas.height);
+    person=canvas.toDataURL('image/jpeg',0.76);
+  }
+  let job=await api('/api/try-on',{person,productId,consent:true});
+  for(let attempt=0;attempt<45&&['starting','processing'].includes(job.status);attempt++){
+    await sleep(1250);
+    job=await api('/api/try-on/'+encodeURIComponent(job.id));
+  }
+  if(job.status!=='succeeded'||!job.output)throw new Error('The visual preview could not be generated.');
+  return job.output;
+}
+
+function appendVisual(container,source,caption){
+  const figure=document.createElement('figure');
+  const image=document.createElement('img');
+  image.src=source;
+  image.alt=caption;
+  const label=document.createElement('figcaption');
+  label.textContent=caption;
+  figure.append(image,label);
+  container.append(figure);
+}
+
+async function continueFitWithPreview(category){
+  const product=fitProduct;
+  const photo=captures.front;
+  if(!product||product.category!==category||!photo||!hostedTryOnAvailable||
+    !fitForm.elements.photoConsent.checked||previewedPhoto===photo)return;
+  previewedPhoto=photo;
+  const generation=++previewGeneration;
+  const title=document.createElement('h3');
+  title.textContent='Your virtual fitting';
+  const status=document.createElement('p');
+  status.setAttribute('role','status');
+  status.textContent='Generating a preview of '+product.name+' using your front scan…';
+  const visuals=document.createElement('div');
+  visuals.className='fit-visuals';
+  sequencePreview.replaceChildren(title,status,visuals);
+  sequencePreview.hidden=false;
+  sequencePreview.scrollIntoView({behavior:'smooth'});
+  try{
+    const first=await createHostedPreview(photo,product.id);
+    if(generation!==previewGeneration)return;
+    appendVisual(visuals,first,'You in '+product.name);
+    const opposite=['trouser','skirt','shorts'].includes(category)?'shirt-short':'trouser';
+    const {products}=await api('/api/wardrobe',{category:opposite});
+    if(generation!==previewGeneration)return;
+    const pairing=products.find(item=>item.id!==product.id);
+    if(!pairing){status.textContent='Preview ready. No matching garment is listed yet.';return;}
+    appendVisual(visuals,pairing.photo_url,pairing.name+' · '+pairing.brand);
+    const shop=document.createElement('a');
+    shop.href=pairing.purchase_url;
+    shop.target='_blank';
+    shop.rel='noopener noreferrer';
+    shop.textContent='Shop '+pairing.name;
+    visuals.lastElementChild.append(shop);
+    if(['dress','suit','traditional'].includes(category)){
+      status.textContent='Garment preview and a catalogue pairing are ready.';
+      return;
+    }
+    status.textContent='Generating the outfit preview…';
+    const paired=await createHostedPreview(first,pairing.id);
+    if(generation!==previewGeneration)return;
+    appendVisual(visuals,paired,product.name+' with '+pairing.name);
+    status.textContent='Previews ready. Review your measurements before sending the order request.';
+  }catch(error){
+    if(generation===previewGeneration){status.textContent=error.message;previewedPhoto=null;}
+  }
 }
 
 async function loadFitRequests(generation=accountGeneration){
@@ -420,20 +530,29 @@ async function loadFitRequests(generation=accountGeneration){
       const card=document.createElement('article');
       card.className='scan-panel fit-request-card';
       const title=document.createElement('h3');
-      title.textContent=(request.vendor_products?.name||'Garment')+' · '+request.status;
+      title.textContent=(request.vendor_products?.name||'Garment')+' · '+request.status.replaceAll('_',' ');
       const desc=document.createElement('p');
       desc.textContent=request.incoming?'Customer: '+request.customer_email:'Vendor: '+(request.vendor_products?.brand||'Listing unavailable');
       const measure=document.createElement('p');
       measure.textContent=Object.entries(request.measurements).map(([key,value])=>(fitLabels[key]||key)+': '+value+' cm').join(' · ');
       card.append(title,desc,measure);
-      if(request.incoming&&request.status==='requested'){
-        for(const status of ['accepted','declined']){
+      if(request.tracking_reference){
+        const tracking=document.createElement('p');
+        tracking.textContent='Tracking: '+request.tracking_reference;
+        card.append(tracking);
+      }
+      const next={requested:['accepted','declined'],accepted:['in_production'],in_production:['shipped'],shipped:['delivered']};
+      if(request.incoming&&next[request.status]){
+        for(const status of next[request.status]){
+          const captions={accepted:'Accept request',declined:'Decline request',in_production:'Start making garment',shipped:'Mark shipped',delivered:'Mark delivered'};
           const button=document.createElement('button');
           button.className='mood-tag';
-          button.textContent=status==='accepted'?'Accept request':'Decline request';
+          button.textContent=captions[status];
           button.onclick=async()=>{
             button.disabled=true;
-            try{await api('/api/fit-requests',{id:request.id,status},'PATCH');await loadFitRequests(generation);}
+            const trackingReference=status==='shipped'?window.prompt('Enter a shipping or delivery reference.'):undefined;
+            if(status==='shipped'&&!trackingReference?.trim()){button.disabled=false;return;}
+            try{await api('/api/fit-requests',{id:request.id,status,trackingReference},'PATCH');await loadFitRequests(generation);}
             catch(error){if(generation===accountGeneration)fitStatus.textContent=error.message;}
             finally{button.disabled=false;}
           };
@@ -481,6 +600,7 @@ const vendorStatus=document.getElementById('vendor-status');
 const vendorList=document.getElementById('vendor-list');
 let accountEmail=null;
 let tryOnEnabled=false;
+let hostedTryOnAvailable=false;
 let accountGeneration=0;
 
 const consentKey=()=> 'faishonix-scan-opt-in:'+accountEmail;
@@ -560,6 +680,8 @@ async function loadSession(){
     if(generation!==accountGeneration)return;
     accountEmail=session.email;
     tryOnEnabled=session.tryOnEnabled;
+    hostedTryOnAvailable=session.hostedTryOnEnabled===true;
+    fitPhotoConsent.hidden=!hostedTryOnAvailable;
     checkTryOnReady();
     accountForm.hidden=Boolean(accountEmail);
     signOut.hidden=!accountEmail;
@@ -589,7 +711,7 @@ accountForm.onsubmit=async event=>{
 
 signOut.onclick=async()=>{
   signOut.disabled=true;
-  try{await api('/api/auth',{action:'signout'});fitProduct=null;customFit.hidden=true;fitForm.reset();document.getElementById('custom-fit-fields').replaceChildren();await loadSession();}
+  try{await api('/api/auth',{action:'signout'});fitProduct=null;previewGeneration++;previewedPhoto=null;sequencePreview.hidden=true;sequencePreview.replaceChildren();customFit.hidden=true;fitForm.reset();document.getElementById('custom-fit-fields').replaceChildren();await loadSession();}
   catch(error){accountStatus.textContent=error.message;}
   finally{signOut.disabled=false;}
 };

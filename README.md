@@ -48,3 +48,11 @@ Load the store SDK from your deployed origin and mount a sizing link with `mount
 In the dedicated Supabase project's **Authentication → URL Configuration**, set the **Site URL** to the live Faishonix origin. In **Redirect URLs**, allow that origin with `/?confirmed=1` and the branch preview URL with `/?confirmed=1` if using preview signup. The signup handler explicitly sends the current origin with that path. Ensure the confirmation template uses `{{ .ConfirmationURL }}`; hardcoded localhost links and templates that always use `{{ .SiteURL }}` will ignore the per-request destination. Test with a fresh confirmation email after configuration.
 
 Garment category photos are illustrative. The full suit, skirt, overcoat and traditional garment photos are sourced from Orjani, J.Crew, Target and Stitches Africa respectively. Published vendor photos are used for actual catalogue results.
+
+### Hosted fit previews and order progress
+
+The fit-request flow can reuse the shopper's front scan for FASHN Try-On v1.6 after separate photo consent. Configure `FASHN_API_KEY` as a server secret and `FASHN_PILOT_EMAILS` as a comma-separated list of confirmed test accounts in the intended Vercel environment. The database caps each account at four generation starts per UTC day. A failed provider call still consumes a start. An outfit preview needs a compatible published pairing item. The v1.6 pilot renders apparel; footwear and other accessories may be recommended as catalogue photos.
+
+Vendor order progress is visible to the shopper and vendor. The vendor records acceptance, production, shipment with a carrier or delivery reference, and delivery. The app stores vendor-entered progress without carrier integration.
+
+For automatic foot measurement, place one dark-socked foot flat on portrait white A4 paper over a dark background. Keep all four paper corners visible and the camera overhead. If the outline is uncertain, use manual landmarks or a ruler. Compare automatic foot length and width with physical references before relying on these estimates.
