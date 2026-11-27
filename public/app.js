@@ -1,7 +1,7 @@
 const captureDialog = document.createElement('dialog');
 captureDialog.id = 'capture-dialog';
 captureDialog.setAttribute('aria-labelledby','capture-title');
-captureDialog.innerHTML = '<header class="capture-header"><h2 id="capture-title"></h2><button type="button" id="capture-close">Close camera</button></header><div id="capture-host"></div><div class="capture-controls" id="capture-controls" hidden></div>';
+captureDialog.innerHTML = '<header class="capture-header"><h2 id="capture-title"></h2><button type="button" id="capture-close">Close camera</button></header><div id="capture-host"></div><div class="capture-controls" id="capture-controls"></div>';
 document.body.append(captureDialog);
 const captureHost = document.getElementById('capture-host');
 const captureControls = document.getElementById('capture-controls');
