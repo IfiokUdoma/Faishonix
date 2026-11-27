@@ -137,16 +137,32 @@ function productCards(db,rows){
 
 const productFields='id,brand,name,description,tags,sizes,size_chart,price_kobo,purchase_url,photo_path,published';
 
+const garmentSearch={
+  'shirt-long':'"long sleeve" OR "dress shirt" OR "button down"',
+  'shirt-short':'"t-shirt" OR tshirt OR tee',
+  trouser:'trousers OR jeans OR chinos',
+  dress:'dress OR gown',
+  jacket:'jacket OR blazer',
+  suit:'"full suit" OR "two piece suit" OR "three piece suit" OR "suit set"',
+  shorts:'shorts',
+  skirt:'skirt',
+  sweater:'sweater OR hoodie OR pullover OR cardigan',
+  coat:'coat OR overcoat OR trench',
+  activewear:'activewear OR "gym wear" OR leggings OR tracksuit',
+  traditional:'"traditional wear" OR ankara OR agbada OR kaftan OR "aso oke"'
+};
+
 async function wardrobe(request,db){
   if(request.method!=='POST')return json({error:'Method not allowed.'},405);
   const input=await readJson(request,2048);
   const query=typeof input?.query==='string'?input.query.trim():'';
-  if(!query||query.length>180)return json({error:'Enter a garment, brand or occasion.'},400);
+  const category=typeof input?.category==='string'&&Object.hasOwn(garmentSearch,input.category)?garmentSearch[input.category]:null;
+  if(!category&&(!query||query.length>180))return json({error:'Enter a garment, brand or occasion.'},400);
   const terms=query.match(/[\p{L}\p{N}]{2,}/gu)?.slice(0,12)||[];
   const items=styleSuggestions(query,input.gender);
-  if(!terms.length)return json({error:'Enter a garment, brand or occasion.'},422);
+  if(!category&&!terms.length)return json({error:'Enter a garment, brand or occasion.'},422);
   const {data,error}=await db.from('vendor_products').select(productFields).eq('published',true)
-    .textSearch('search_terms',terms.join(' OR '),{type:'websearch',config:'english'})
+    .textSearch('search_terms',category||terms.join(' OR '),{type:'websearch',config:'english'})
     .order('created_at',{ascending:false}).limit(24);
   if(error)throw error;
   return json({items,products:productCards(db,data)});

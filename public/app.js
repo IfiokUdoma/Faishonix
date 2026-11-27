@@ -1,3 +1,24 @@
+function cameraAvailable(){
+  return window.isSecureContext&&Boolean(navigator.mediaDevices?.getUserMedia);
+}
+
+function cameraError(error){
+  if(error.name==='NotAllowedError')return 'Camera blocked. Allow camera access in your browser, then reopen the scanner.';
+  if(error.name==='NotFoundError')return 'No camera is available. Connect one or use the manual estimate.';
+  if(error.name==='NotReadableError')return 'The camera is busy. Close other camera apps and retry.';
+  return 'The camera opened without a usable video feed. Reopen it or use the manual estimate.';
+}
+
+async function startVideo(video){
+  let timeout;
+  try{
+    await Promise.race([video.play(),new Promise((_,reject)=>{
+      timeout=setTimeout(()=>reject(new Error('Camera did not start')),8000);
+    })]);
+    if(!video.videoWidth||video.readyState<2)throw new Error('No video frame');
+  }finally{clearTimeout(timeout);}
+}
+
 const captureDialog = document.createElement('dialog');
 captureDialog.id = 'capture-dialog';
 captureDialog.setAttribute('aria-labelledby','capture-title');
@@ -103,7 +124,7 @@ async function startFootScan(side){
     canvas.height=video.videoHeight;
     const context=canvas.getContext('2d');
     context.drawImage(video,0,0);
-    footStream.getTracks().forEach(track=>track.stop());
+    footStream?.getTracks().forEach(track=>track.stop());
     footStream=null;
     const review=document.createElement('div');
     review.id='foot-review';
@@ -132,15 +153,20 @@ async function startFootScan(side){
       document.getElementById('foot-save').onclick=()=>accept(manual.valueAsNumber,'A4 photo estimate');
     };
   };
+  if(!cameraAvailable()){status.textContent='Camera requires HTTPS and browser camera access. You can enter a ruler measurement below.';return;}
   try {
     const stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:'environment'},width:{ideal:1280}},audio:false});
     if(captureDialog.dataset.session!==session){stream.getTracks().forEach(track=>track.stop());return;}
     footStream=stream;
     video.srcObject=stream;
-    await video.play();
-    photo.disabled=false;
-  } catch {
-    if(captureDialog.dataset.session===session)status.textContent='Camera unavailable. Enter a foot length measured with a ruler.';
+    await startVideo(video);
+    if(captureDialog.dataset.session===session)photo.disabled=false;
+  } catch(error) {
+    if(captureDialog.dataset.session===session){
+      footStream?.getTracks().forEach(track=>track.stop());
+      footStream=null;
+      status.textContent=cameraError(error)+' You can enter a ruler measurement below.';
+    }
   }
 }
 
@@ -181,6 +207,23 @@ async function searchWardrobe(){
     if(items.length)renderWardrobeResults(items);
   }catch(error){
     if(section.dataset.search===request)status.textContent=error.message;
+  }
+}
+
+const scannerCatalogue=document.getElementById('scanner-catalogue-results');
+const scannerCatalogueStatus=document.getElementById('scanner-catalogue-status');
+let scannerSearch=0;
+async function loadScannerCatalogue(category){
+  const request=++scannerSearch;
+  scannerCatalogue.replaceChildren();
+  scannerCatalogueStatus.textContent='Looking for vendor listings…';
+  try{
+    const {products}=await api('/api/wardrobe',{category});
+    if(request!==scannerSearch)return;
+    scannerCatalogueStatus.textContent=products.length?'':'No vendor listings in this category yet. You can still find your size below.';
+    scannerCatalogue.replaceChildren(...products.slice(0,4).map(product=>productCard(product)));
+  }catch(error){
+    if(request===scannerSearch)scannerCatalogueStatus.textContent='Catalogue unavailable. You can still find your size below.';
   }
 }
 
@@ -404,3 +447,5 @@ document.addEventListener('keydown',event=>{
     event.target.click();
   }
 });
+
+loadScannerCatalogue(selectedItem);

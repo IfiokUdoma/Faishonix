@@ -283,19 +283,20 @@ footer{background:var(--dark);color:rgba(255,255,255,0.6);padding:48px;display:g
 }
 </style>
 <link rel="stylesheet" href="/capture.css">
+<link rel="icon" type="image/svg+xml" href="/brand/faishonix-mark.svg">
 </head>
 <body>
 
 <!-- NAV -->
 <nav>
-  <div class="logo">Faish<span>onix</span></div>
+  <a class="logo brand-lockup" href="#" aria-label="Faishonix home"><img src="/brand/faishonix-mark.svg" alt="" width="36" height="36">Faish<span>onix</span></a>
   <div class="nav-links">
     <a href="#scanner">Body Scan</a>
     <a href="#shoe-scan">Shoe Size</a>
     <a href="#tryon">Try-On</a>
     <a href="#wardrobe">Your Wardrobe</a>
   </div>
-  <a href="#scanner" class="nav-cta">Start Scanning</a>
+  <a href="#vendor" class="nav-cta">Vendor Dashboard</a>
 </nav>
 
 <!-- HERO -->
@@ -369,54 +370,23 @@ footer{background:var(--dark);color:rgba(255,255,255,0.6);padding:48px;display:g
   <div style="margin-bottom:32px">
     <div style="font-size:13px;font-weight:600;color:var(--gray);margin-bottom:14px;letter-spacing:.04em;text-transform:uppercase;">What are you buying?</div>
     <div class="item-scroll" id="item-grid">
-      <div class="item-card active" data-item="shirt-long" onclick="selectItem('shirt-long')">
-        <img class="item-card-img" src="https://images.unsplash.com/photo-1596755094514-f87e34085b2c?w=200&q=70" alt="Shirt" loading="lazy" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'"><div class="item-card-img-placeholder" style="display:none">👔</div>
-        <div class="item-card-label">Long Sleeve Shirt</div><div class="item-check">✓</div>
-      </div>
-      <div class="item-card" data-item="shirt-short" onclick="selectItem('shirt-short')">
-        <img class="item-card-img" src="https://images.unsplash.com/photo-1503341455253-b2e723bb3dbb?w=200&q=70" alt="T-Shirt" loading="lazy" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'"><div class="item-card-img-placeholder" style="display:none">👕</div>
-        <div class="item-card-label">T-Shirt</div><div class="item-check">✓</div>
-      </div>
-      <div class="item-card" data-item="trouser" onclick="selectItem('trouser')">
-        <img class="item-card-img" src="https://images.unsplash.com/photo-1542272604-787c3835535d?w=200&q=70" alt="Trouser" loading="lazy" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'"><div class="item-card-img-placeholder" style="display:none">👖</div>
-        <div class="item-card-label">Trouser / Jeans</div><div class="item-check">✓</div>
-      </div>
-      <div class="item-card" data-item="dress" onclick="selectItem('dress')">
-        <img class="item-card-img" src="https://images.unsplash.com/photo-1595777457583-95e059d581b8?w=200&q=70" alt="Dress" loading="lazy" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'"><div class="item-card-img-placeholder" style="display:none">👗</div>
-        <div class="item-card-label">Dress</div><div class="item-check">✓</div>
-      </div>
-      <div class="item-card" data-item="jacket" onclick="selectItem('jacket')">
-        <img class="item-card-img" src="https://images.unsplash.com/photo-1591047139829-d91aecb6caea?w=200&q=70" alt="Jacket" loading="lazy" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'"><div class="item-card-img-placeholder" style="display:none">🧥</div>
-        <div class="item-card-label">Jacket / Blazer</div><div class="item-check">✓</div>
-      </div>
-      <div class="item-card" data-item="suit" onclick="selectItem('suit')">
-        <img class="item-card-img" src="https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=200&q=70" alt="Suit" loading="lazy" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'"><div class="item-card-img-placeholder" style="display:none">🤵</div>
-        <div class="item-card-label">Full Suit</div><div class="item-check">✓</div>
-      </div>
-      <div class="item-card" data-item="shorts" onclick="selectItem('shorts')">
-        <img class="item-card-img" src="https://images.unsplash.com/photo-1506629082955-511b1aa562c8?w=200&q=70" alt="Shorts" loading="lazy" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'"><div class="item-card-img-placeholder" style="display:none">🩳</div>
-        <div class="item-card-label">Shorts</div><div class="item-check">✓</div>
-      </div>
-      <div class="item-card" data-item="skirt" onclick="selectItem('skirt')">
-        <img class="item-card-img" src="https://images.unsplash.com/photo-1529374255404-311a2a4f1fd9?w=200&q=70" alt="Skirt" loading="lazy" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'"><div class="item-card-img-placeholder" style="display:none">👗</div>
-        <div class="item-card-label">Skirt</div><div class="item-check">✓</div>
-      </div>
-      <div class="item-card" data-item="sweater" onclick="selectItem('sweater')">
-        <img class="item-card-img" src="https://images.unsplash.com/photo-1434389677669-e08b4cac3105?w=200&q=70" alt="Sweater" loading="lazy" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'"><div class="item-card-img-placeholder" style="display:none">🧶</div>
-        <div class="item-card-label">Sweater / Hoodie</div><div class="item-check">✓</div>
-      </div>
-      <div class="item-card" data-item="coat" onclick="selectItem('coat')">
-        <img class="item-card-img" src="https://images.unsplash.com/photo-1548624313-0396a0bc3b6e?w=200&q=70" alt="Coat" loading="lazy" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'"><div class="item-card-img-placeholder" style="display:none">🧥</div>
-        <div class="item-card-label">Coat / Overcoat</div><div class="item-check">✓</div>
-      </div>
-      <div class="item-card" data-item="activewear" onclick="selectItem('activewear')">
-        <img class="item-card-img" src="https://images.unsplash.com/photo-1538805060514-97d9cc17730c?w=200&q=70" alt="Activewear" loading="lazy" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'"><div class="item-card-img-placeholder" style="display:none">🏃</div>
-        <div class="item-card-label">Activewear</div><div class="item-check">✓</div>
-      </div>
-      <div class="item-card" data-item="traditional" onclick="selectItem('traditional')">
-        <img class="item-card-img" src="https://images.unsplash.com/photo-1580086319619-3ed498161c77?w=200&q=70" alt="Traditional" loading="lazy" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'"><div class="item-card-img-placeholder" style="display:none">🥻</div>
-        <div class="item-card-label">Traditional Wear</div><div class="item-check">✓</div>
-      </div>
+      <button type="button" class="mood-tag garment-option" data-item="shirt-long" aria-pressed="true" onclick="selectItem('shirt-long')">Long Sleeve Shirt</button>
+      <button type="button" class="mood-tag garment-option" data-item="shirt-short" aria-pressed="false" onclick="selectItem('shirt-short')">T-Shirt</button>
+      <button type="button" class="mood-tag garment-option" data-item="trouser" aria-pressed="false" onclick="selectItem('trouser')">Trouser / Jeans</button>
+      <button type="button" class="mood-tag garment-option" data-item="dress" aria-pressed="false" onclick="selectItem('dress')">Dress</button>
+      <button type="button" class="mood-tag garment-option" data-item="jacket" aria-pressed="false" onclick="selectItem('jacket')">Jacket / Blazer</button>
+      <button type="button" class="mood-tag garment-option" data-item="suit" aria-pressed="false" onclick="selectItem('suit')">Full Suit</button>
+      <button type="button" class="mood-tag garment-option" data-item="shorts" aria-pressed="false" onclick="selectItem('shorts')">Shorts</button>
+      <button type="button" class="mood-tag garment-option" data-item="skirt" aria-pressed="false" onclick="selectItem('skirt')">Skirt</button>
+      <button type="button" class="mood-tag garment-option" data-item="sweater" aria-pressed="false" onclick="selectItem('sweater')">Sweater / Hoodie</button>
+      <button type="button" class="mood-tag garment-option" data-item="coat" aria-pressed="false" onclick="selectItem('coat')">Coat / Overcoat</button>
+      <button type="button" class="mood-tag garment-option" data-item="activewear" aria-pressed="false" onclick="selectItem('activewear')">Activewear</button>
+      <button type="button" class="mood-tag garment-option" data-item="traditional" aria-pressed="false" onclick="selectItem('traditional')">Traditional Wear</button>
+    </div>
+    <div class="scanner-catalogue">
+      <h3>Shop this garment type</h3>
+      <p id="scanner-catalogue-status" role="status"></p>
+      <div id="scanner-catalogue-results" class="catalogue-grid"></div>
     </div>
   </div>
 
@@ -491,6 +461,7 @@ footer{background:var(--dark);color:rgba(255,255,255,0.6);padding:48px;display:g
         <div class="cam-progress" id="side-prog"><div class="cam-progress-fill" id="side-fill" style="width:0%"></div></div>
 
         <button class="btn-dark" id="scan-btn" onclick="runBodyScan()" disabled style="width:100%;justify-content:center;margin-top:14px;padding:14px">⚡ Generate My Size</button>
+        <button class="mood-tag" type="button" onclick="runBodyScan(true)">Estimate from lookup table</button>
       </div>
     </div>
 
@@ -729,6 +700,7 @@ footer{background:var(--dark);color:rgba(255,255,255,0.6);padding:48px;display:g
 <section class="section" id="vendor">
   <h2 class="section-title">Vendor dashboard</h2>
   <p class="section-sub">Publish clothing to wardrobe search. Shoppers order through your purchase link.</p>
+  <p><a href="#scan-history" id="vendor-signin">Sign in or create your account</a> to upload products after vendor approval.</p>
   <p id="vendor-status" role="status">Sign in with an approved vendor account.</p>
   <form id="vendor-form" class="vendor-form" hidden>
     <label>Product name <input name="name" maxlength="100" required></label>
@@ -746,7 +718,7 @@ footer{background:var(--dark);color:rgba(255,255,255,0.6);padding:48px;display:g
 
 <footer>
   <div>
-    <div class="footer-logo">Faish<span>onix</span></div>
+    <div class="footer-logo brand-lockup"><img src="/brand/faishonix-mark.svg" alt="" width="32" height="32">Faish<span>onix</span></div>
     <div class="footer-desc">AI-powered fashion scanning for e-commerce, fashion houses, and retail — globally.</div>
     <div style="color:rgba(255,255,255,0.4);font-size:12px">faishscan@gmail.com</div>
   </div>
@@ -882,7 +854,8 @@ setInterval(()=>{
 let selectedItem='shirt-long';
 function selectItem(item){
   selectedItem=item;
-  document.querySelectorAll('.item-card').forEach(c=>c.classList.toggle('active',c.dataset.item===item));
+  document.querySelectorAll('.garment-option').forEach(option=>option.setAttribute('aria-pressed',String(option.dataset.item===item)));
+  loadScannerCatalogue(item);
   document.getElementById('results-panel').classList.remove('show');
   document.getElementById('results-placeholder').style.display='block';
   checkScanReady();
@@ -1037,7 +1010,7 @@ function calculateRealBodyMeasurements(lms,heightCm,weightKg){
 // ═══════════════════════════════════════
 // RUN BODY SCAN
 // ═══════════════════════════════════════
-async function runBodyScan(){
+async function runBodyScan(lookupOnly=false){
   const heightCm=getHeightCm(),weightKg=parseFloat(document.getElementById('weight').value)||0;
   const gender=document.getElementById('gender').value,bodyType=document.getElementById('body-type').value;
   const asym=document.getElementById('asym-toggle').checked;
@@ -1048,14 +1021,23 @@ async function runBodyScan(){
 
 
   let result=null;
-  if(landmarks.front){
+  const baseline=fallbackMeasurements(heightCm,weightKg,gender,bodyType);
+  if(!lookupOnly&&landmarks.front){
     result=calculateRealBodyMeasurements(landmarks.front,heightCm,weightKg);
+    if(result){
+      for(const field of ITEMS[selectedItem].fields){
+        if(!Number.isFinite(result[field])||result[field]<=0){
+          result[field]=baseline[field];
+          result.sources[field]='Lookup estimate';
+        }
+      }
+    }
   }
 
   const fromPose=Boolean(result);
   if(!result){
     // fallback to lookup table
-    result=fallbackMeasurements(heightCm,weightKg,gender,bodyType);
+    result=baseline;
   }
 
 
@@ -1081,10 +1063,12 @@ async function runBodyScan(){
 
   // Lock generate button — only resets when user retakes scan
   const scanBtn=document.getElementById('scan-btn');
-  scanBtn.disabled=true;
-  scanBtn.textContent='✓ Size generated · Retake scan to recalculate';
+  if(!lookupOnly){
+    scanBtn.disabled=true;
+    scanBtn.textContent='✓ Size generated · Retake scan to recalculate';
+  }
 
-  // save to D1
+  // Save only when account history is enabled.
   saveScan({item:selectedItem,measurements:result});
 }
 
@@ -1258,7 +1242,8 @@ async function startScan(view){
     }
   }
 
-  if (!await vision) { showToast('Body scanner unavailable. Check your connection and refresh.'); return; }
+  if (!cameraAvailable()) { showToast('Open Faishonix over HTTPS in a browser with camera access.'); return; }
+  if (!await vision) { showToast('Body scanner unavailable. You can still use the lookup table estimate.'); return; }
   closeCapture();
   stopCamera();
   fcieLoopActive=false;
@@ -1330,10 +1315,10 @@ async function startScan(view){
   let stream;
   try{
     stream=await navigator.mediaDevices.getUserMedia({
-      video:{facingMode:camFacing[view],width:{ideal:1280},height:{ideal:720}}
+      video:{facingMode:{ideal:camFacing[view]},width:{ideal:960},height:{ideal:720}},audio:false
     });
   }catch(e){
-    showToast('Camera access denied. Allow camera permission in browser settings.');
+    showToast(cameraError(e));
     closeCapture();
     return;
   }
@@ -1341,7 +1326,11 @@ async function startScan(view){
   if (!vid.isConnected || captureDialog.dataset.session!==stage) {stream.getTracks().forEach(track=>track.stop());return;}
   activeStream=stream;
   vid.srcObject=stream;
-  await new Promise(r=>{vid.onloadeddata=r;setTimeout(r,3000);}); // 3s max wait
+  try{await startVideo(vid);}
+  catch(error){
+    if(captureDialog.dataset.session===stage){closeCapture();showToast(cameraError(error));}
+    return;
+  }
   if (captureDialog.dataset.session!==stage) return;
 
   // Voice instruction
@@ -1360,6 +1349,30 @@ async function startScan(view){
     if(fill)fill.style.width=pct+'%';
     if(fill)fill.style.background=pct>=95?'#5A8A5A':pct>=70?'#C8956C':'#C05050';
     if(txt)txt.textContent=pct>=95?'✓ Ready!':pct+'% ready';
+  };
+
+  const manualCapture=document.createElement('button');
+  manualCapture.type='button';
+  manualCapture.textContent='Capture when ready';
+  manualCapture.disabled=true;
+  const captureHint=document.createElement('p');
+  captureHint.textContent='Keep your full body visible. Auto-capture remains on.';
+  captureControls.replaceChildren(captureHint,manualCapture);
+  captureControls.style.display='flex';
+  let candidate=null;
+  const saveFrame=(lms,silhouette)=>{
+    const canvas=document.createElement('canvas');
+    canvas.width=vid.videoWidth;
+    canvas.height=vid.videoHeight;
+    canvas.getContext('2d').drawImage(vid,0,0);
+    bestFrames[view]={canvas,landmarks:lms,silhouette};
+  };
+  manualCapture.onclick=()=>{
+    if(!candidate||captureDialog.dataset.session!==stage)return;
+    if(countdownTimer){clearInterval(countdownTimer);countdownTimer=null;}
+    const {landmarks,silhouette}=candidate;
+    if(!bestFrames[view])saveFrame(landmarks,silhouette);
+    finalizeScan(view);
   };
 
   // ── FCIE VIDEO LOOP ──────────────────────────────────────────
@@ -1414,9 +1427,16 @@ async function startScan(view){
 
     // Inspector 1+2: person + visibility
     const p=inspectPerson(lms,view);
+    const pose=p.ok?inspectPose(lms,view):null;
+    candidate=p.ok&&pose?.ok?{landmarks:lms,silhouette}:null;
+    manualCapture.disabled=!candidate;
     if(!p.ok)ctx.clearRect(0,0,oc.width,oc.height);
     scores.person=p.ok?p.score||100:0;
     if(!p.ok){
+      if(countdownTimer){clearInterval(countdownTimer);countdownTimer=null;}
+      countingDown=false;
+      stableFrames=0;
+      cdDiv.style.display='none';
       debugLines.push('Body: ✗ '+p.msg);
       feedback=p.msg;allOk=false;
       setScore(15);setFeedback(feedback,'#F0C44A');
@@ -1425,7 +1445,6 @@ async function startScan(view){
     debugLines.push('Body: ✓');
 
     // Inspector 3: pose
-    const pose=inspectPose(lms,view);
     scores.pose=pose.ok?pose.score:0;
     debugLines.push('Pose: '+(pose.ok?'✓':'✗ '+pose.msg));
     if(!pose.ok){feedback=pose.msg;allOk=false;}
@@ -1474,14 +1493,10 @@ async function startScan(view){
       stableFrames++;
       setFeedback(stableFrames<10?'Hold still...':'✓ Perfect — capturing soon','#5A8A5A');
 
-      // Store this as a candidate best frame
-      const snap=document.createElement('canvas');
-      snap.width=oc.width;snap.height=oc.height;
-      snap.getContext('2d').drawImage(vid,0,0,snap.width,snap.height);
       const frameScore=readiness+(scores.sharpness||0)*0.3+(scores.stability||0)*0.2;
       if(frameScore>bestFrameScore){
         bestFrameScore=frameScore;
-        bestFrames[view]={canvas:snap,landmarks:lms,silhouette};
+        saveFrame(lms,silhouette);
       }
 
       // Start countdown after enough stable frames

@@ -46,3 +46,15 @@
 .catalogue-card details p { white-space:pre-line; }
 .catalogue-card .btn-dark { width:fit-content; margin-top:.4rem; }
 @media (max-width:600px) { .vendor-form { grid-template-columns:1fr; } }
+
+.brand-lockup { display:inline-flex; align-items:center; text-decoration:none; white-space:nowrap; }
+.brand-lockup img { display:block; margin-right:.5rem; flex-shrink:0; }
+.brand-lockup.logo { color:var(--dark); }
+#item-grid { display:flex; flex-wrap:wrap; gap:.5rem; }
+.garment-option { padding:.55rem .85rem; }
+.garment-option[aria-pressed="true"] { background:var(--dark); color:var(--white); border-color:var(--dark); }
+.scanner-catalogue { margin-top:1.25rem; }
+.scanner-catalogue h3 { font-size:1rem; margin-bottom:.3rem; }
+#scanner-catalogue-status { font-size:.9rem; color:var(--gray); }
+#scanner-catalogue-results { grid-template-columns:repeat(auto-fill,minmax(min(210px,100%),1fr)); }
+#vendor-signin { text-decoration:underline; }
