@@ -145,9 +145,13 @@ async function startFootScan(side){
 }
 
 async function api(path,body,method){
-  const response=await fetch(path,body===undefined?{method:method||'GET'}:{
-    method:method||'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)
-  });
+  const options={method:method||(body===undefined?'GET':'POST')};
+  if(body instanceof FormData)options.body=body;
+  else if(body!==undefined){
+    options.headers={'Content-Type':'application/json'};
+    options.body=JSON.stringify(body);
+  }
+  const response=await fetch(path,options);
   const result=await response.json().catch(()=>null);
   if(!response.ok)throw new Error(result?.error||'Service unavailable. Please try again.');
   return result;
@@ -158,15 +162,74 @@ async function suggest(query,gender){
 }
 
 async function searchWardrobe(){
+  const section=document.getElementById('wardrobe');
+  const query=document.getElementById('wardrobe-query').value;
+  const gender=document.getElementById('wardrobe-gender').value;
+  const status=document.getElementById('catalogue-status');
+  const list=document.getElementById('catalogue-results');
+  const request=String(Number(section.dataset.search||0)+1);
+  section.dataset.search=request;
+  status.textContent='Searching the catalogue…';
+  list.replaceChildren();
+  document.getElementById('wardrobe-results').style.display='none';
+  document.getElementById('wardrobe-placeholder').style.display='none';
   try{
-    const query=document.getElementById('wardrobe-query').value;
-    const gender=document.getElementById('wardrobe-gender').value;
-    renderWardrobeResults(await suggest(query,gender));
+    const {items,products}=await api('/api/wardrobe',{query,gender});
+    if(section.dataset.search!==request)return;
+    status.textContent=products.length?'Shop vendor listings':'No vendor listings match your search.';
+    list.replaceChildren(...products.map(product=>productCard(product)));
+    if(items.length)renderWardrobeResults(items);
   }catch(error){
-    document.getElementById('wardrobe-results').style.display='none';
-    document.getElementById('wardrobe-placeholder').style.display='';
-    showToast(error.message);
+    if(section.dataset.search===request)status.textContent=error.message;
   }
+}
+
+function productCard(product,onToggle){
+  const card=document.createElement('article');
+  card.className='catalogue-card';
+  const photo=document.createElement('img');
+  photo.src=product.photo_url;
+  photo.alt=product.name;
+  photo.loading='lazy';
+  const contents=document.createElement('div');
+  const title=document.createElement('h3');
+  title.textContent=product.name;
+  const brand=document.createElement('p');
+  brand.textContent=product.brand;
+  brand.className='catalogue-brand';
+  const desc=document.createElement('p');
+  desc.textContent=product.description;
+  const sizes=document.createElement('p');
+  sizes.textContent='Sizes: '+product.sizes;
+  const price=document.createElement('strong');
+  price.textContent=new Intl.NumberFormat('en-NG',{style:'currency',currency:'NGN'}).format(product.price_kobo/100);
+  const link=document.createElement('a');
+  link.className='btn-dark';
+  link.href=product.purchase_url;
+  link.target='_blank';
+  link.rel='noopener noreferrer';
+  link.textContent='Order from vendor';
+  contents.append(brand,title,desc,sizes);
+  if(product.size_chart){
+    const chart=document.createElement('details');
+    const summary=document.createElement('summary');
+    summary.textContent='Size chart';
+    const guide=document.createElement('p');
+    guide.textContent=product.size_chart;
+    chart.append(summary,guide);
+    contents.append(chart);
+  }
+  contents.append(price,link);
+  if(onToggle){
+    const toggle=document.createElement('button');
+    toggle.type='button';
+    toggle.className='mood-tag';
+    toggle.textContent=product.published?'Unpublish':'Publish';
+    toggle.onclick=()=>onToggle(toggle,product);
+    contents.append(toggle);
+  }
+  card.append(photo,contents);
+  return card;
 }
 
 function renderStyleCards(container,items){
@@ -189,41 +252,144 @@ async function getTryOnPairings(){
   }catch(error){showToast(error.message);}
 }
 
-const historySection=document.createElement('section');
-historySection.id='scan-history';
-historySection.className='section';
-historySection.innerHTML='<h2 class="section-title">Your previous scans</h2><label><input type="checkbox" id="history-consent"> Save future scans to my history</label><p role="status" id="history-status"></p><ul></ul><button class="btn-dark" type="button" id="history-delete">Clear saved scans</button>';
-document.getElementById('shoe-scan').after(historySection);
+const historySection=document.getElementById('scan-history');
 const historyConsent=document.getElementById('history-consent');
 const historyStatus=document.getElementById('history-status');
-historyConsent.checked=localStorage.getItem('faishonix-history-consent')==='true';
-historyConsent.onchange=()=>localStorage.setItem('faishonix-history-consent',String(historyConsent.checked));
+const historyList=historySection.querySelector('ul');
+const historyDelete=document.getElementById('history-delete');
+const accountForm=document.getElementById('account-form');
+const accountStatus=document.getElementById('account-status');
+const signOut=document.getElementById('signout');
+const vendorForm=document.getElementById('vendor-form');
+const vendorStatus=document.getElementById('vendor-status');
+const vendorList=document.getElementById('vendor-list');
+let accountEmail=null;
+let tryOnEnabled=false;
+let accountGeneration=0;
 
-async function loadHistory(){
-  const list=historySection.querySelector('ul');
+const consentKey=()=> 'faishonix-scan-opt-in:'+accountEmail;
+historyConsent.onchange=()=>localStorage.setItem(consentKey(),String(historyConsent.checked));
+
+async function loadHistory(generation=accountGeneration){
+  if(!accountEmail)return;
   try{
     const {scans}=await api('/api/scans');
-    list.replaceChildren(...scans.map(scan=>{
+    if(generation!==accountGeneration)return;
+    historyList.replaceChildren(...scans.map(scan=>{
       const row=document.createElement('li');
       const date=new Date(scan.timestamp).toLocaleString();
       row.textContent=`${date} · ${ITEMS[scan.item]?.label||'Shoes'} · ${scan.item==='shoes'?'EU ':''}${scan.measurements.size}`;
       return row;
     }));
     historyStatus.textContent=scans.length?'':'No saved scans yet.';
-  }catch(error){historyStatus.textContent=error.message;}
+    historyDelete.disabled=!scans.length;
+  }catch(error){if(generation===accountGeneration)historyStatus.textContent=error.message;}
 }
 
-async function saveToD1({item,measurements}){
-  if(!historyConsent.checked)return;
-  try{await api('/api/scans',{item,measurements});await loadHistory();}
-  catch(error){historyStatus.textContent='Scan was not saved. '+error.message;}
+async function saveScan({item,measurements}){
+  if(!accountEmail||!historyConsent.checked)return;
+  const generation=accountGeneration;
+  try{await api('/api/scans',{item,measurements});await loadHistory(generation);}
+  catch(error){if(generation===accountGeneration)historyStatus.textContent='Scan was not saved. '+error.message;}
 }
-document.getElementById('history-delete').onclick=async()=>{
-  if(!window.confirm('Clear all scans saved to this browser’s history account?'))return;
-  try{await api('/api/scans',undefined,'DELETE');await loadHistory();}
-  catch(error){historyStatus.textContent=error.message;}
+
+historyDelete.onclick=async()=>{
+  if(!window.confirm('Clear all saved scans for your account?'))return;
+  const generation=accountGeneration;
+  try{await api('/api/scans',undefined,'DELETE');await loadHistory(generation);}
+  catch(error){if(generation===accountGeneration)historyStatus.textContent=error.message;}
 };
-loadHistory();
+
+async function toggleListing(button,product){
+  const generation=accountGeneration;
+  button.disabled=true;
+  try{
+    await api('/api/vendor',{id:product.id,published:!product.published},'PATCH');
+    await loadVendor(generation);
+  }catch(error){
+    if(generation===accountGeneration)vendorStatus.textContent=error.message;
+  }finally{button.disabled=false;}
+}
+
+async function loadVendor(generation=accountGeneration){
+  try{
+    const {brand,products}=await api('/api/vendor');
+    if(generation!==accountGeneration)return;
+    vendorStatus.textContent=products.length?brand:`${brand} · No listings yet.`;
+    vendorForm.hidden=false;
+    vendorList.replaceChildren(...products.map(product=>productCard(product,toggleListing)));
+  }catch(error){if(generation===accountGeneration)vendorStatus.textContent=error.message;}
+}
+
+async function loadSession(){
+  const generation=++accountGeneration;
+  historyList.replaceChildren();
+  vendorList.replaceChildren();
+  vendorForm.reset();
+  vendorForm.hidden=true;
+  accountEmail=null;
+  historyConsent.checked=false;
+  historyConsent.disabled=true;
+  historyDelete.disabled=true;
+  historyStatus.textContent='Sign in to view or save scans.';
+  vendorStatus.textContent='Sign in with an approved vendor account.';
+  try{
+    const session=await api('/api/session');
+    if(generation!==accountGeneration)return;
+    accountEmail=session.email;
+    tryOnEnabled=session.tryOnEnabled;
+    checkTryOnReady();
+    accountForm.hidden=Boolean(accountEmail);
+    signOut.hidden=!accountEmail;
+    accountStatus.textContent=accountEmail?'Signed in as '+accountEmail:'';
+    if(accountEmail){
+      historyConsent.disabled=false;
+      historyConsent.checked=localStorage.getItem(consentKey())==='true';
+      await Promise.all([loadHistory(generation),loadVendor(generation)]);
+    }
+  }catch(error){if(generation===accountGeneration)accountStatus.textContent=error.message;}
+}
+
+accountForm.onsubmit=async event=>{
+  event.preventDefault();
+  const fields=new FormData(accountForm);
+  const action=event.submitter?.value||'signin';
+  const buttons=accountForm.querySelectorAll('button');
+  buttons.forEach(button=>button.disabled=true);
+  try{
+    const {signedIn}=await api('/api/auth',{action,email:fields.get('email'),password:fields.get('password')});
+    accountForm.reset();
+    if(signedIn)await loadSession();
+    else accountStatus.textContent='Check your email to confirm your account, then sign in.';
+  }catch(error){accountStatus.textContent=error.message;}
+  finally{buttons.forEach(button=>button.disabled=false);}
+};
+
+signOut.onclick=async()=>{
+  signOut.disabled=true;
+  try{await api('/api/auth',{action:'signout'});await loadSession();}
+  catch(error){accountStatus.textContent=error.message;}
+  finally{signOut.disabled=false;}
+};
+
+vendorForm.onsubmit=async event=>{
+  event.preventDefault();
+  const generation=accountGeneration;
+  const button=vendorForm.querySelector('button');
+  const data=new FormData(vendorForm);
+  if(data.get('photo').size>2_097_152){vendorStatus.textContent='Choose a photo no larger than 2 MB.';return;}
+  button.disabled=true;
+  vendorStatus.textContent='Publishing listing…';
+  try{
+    await api('/api/vendor',data);
+    if(generation!==accountGeneration)return;
+    vendorForm.reset();
+    await loadVendor(generation);
+  }catch(error){if(generation===accountGeneration)vendorStatus.textContent=error.message;}
+  finally{button.disabled=false;}
+};
+
+loadSession();
 
 document.getElementById('shoe-gender').addEventListener('change',()=>{
   shoeResultLocked=false;

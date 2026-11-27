@@ -1,55 +1,51 @@
 # Faishonix
 
-Faishonix is a browser-based sizing and outfit tool. The frontend runs on Cloudflare Workers Static Assets. The same Worker serves outfit matching, scan history and virtual try-on. D1 stores opted-in measurements and limits try-on requests.
+Faishonix combines browser-based fit estimates with a vendor clothing catalogue. The static frontend and API are served by Vercel. Supabase handles account sign-in, private scan history and vendor listings and photos.
 
-## Run locally
+## Local development
 
-Use Node.js 22 or newer.
+Use Node.js 24. Copy `.env.example` to `.env.local` and fill in the project URL and publishable key for the dedicated Faishonix Supabase project. Use a publishable key. The app uses each signed-in user's Supabase session and does not require an admin key.
 
 ```sh
 npm ci
 npm run dev
 ```
 
-Open http://127.0.0.1:8787. The command sets up a local D1 database. The first build downloads and verifies the pinned MediaPipe pose model from Google Storage. The Worker serves the model and WASM from the same origin as the app. Camera capture requires localhost or HTTPS. Browser dictation depends on the browser and speech service. English search has the widest coverage. French and Spanish include selected terms.
+Open http://127.0.0.1:3000. The first build downloads and verifies a pinned MediaPipe model. The app then serves the model and WASM from its own origin.
 
-## Check the pilot
+## Supabase setup
 
-- **Body.** Enter height, weight and body type. Capture each pose in the full-screen camera. Use Close or Escape to release the camera. Fit results come from pose landmarks, front and side silhouettes when usable, and explicitly labelled fallbacks. Measurement source labels do not represent a validated accuracy percentage.
-- **Shoes.** Enter a ruler-measured length or take a top-down photo with a real A4 sheet beside the foot. Mark the endpoints of its 29.7 cm edge, then heel and longest toe. Review the estimate before saving. Use the retailer's chart for final sizing. Repeat for the other foot if needed.
-- **Wardrobe.** Try `Lagos wedding`, `office blazer`, `Ankara` and `hdhdududsu`. Suggestions come from a curated library of looks and garment pairings. No catalog, paid text model or automatic outfit image generation is required.
-- **History.** Opt in, complete a scan and reload. The result should appear under Your previous scans. Test isolation from a separate browser profile and use Clear saved scans to remove your entries. History belongs to a browser cookie. Clearing that cookie removes access to this history. Photos, height, weight and search text are excluded from D1 history. Scan photos stay in browser memory unless the user confirms sending them for try-on.
-- **Try-on.** Requires an approved model and server-side token. Choose a garment category and confirm before the two photos are sent.
+Apply the migration under `supabase/migrations/` to the dedicated Faishonix project. For project `mnwxegdquaglauykcrty`, it has already been applied. It creates private, account-scoped scan history, vendor approvals and catalogue listings, and a `vendor-photos` bucket for public product photos. Enable email/password Auth and configure the Auth Site URL and email confirmation links for your deployment. Configure SMTP or provision confirmed pilot accounts in the Supabase dashboard for testing.
 
-## Deploy to Cloudflare
+To approve a vendor, first have them create and confirm an account. From the Faishonix SQL editor, run the following after substituting their confirmed account email and brand:
 
-1. Confirm the existing D1 database name and ID in `wrangler.toml` and authenticate CLI access to the owning account.
-2. Set a long, randomly generated `BETA_PASSWORD` through the Worker secret settings or `npx wrangler secret put BETA_PASSWORD`. Pilot users sign in over HTTPS using username `pilot` and that password. The Worker checks it before serving either HTML or API responses. The old query-string code has no role in access. For a hosted pilot, choose a dedicated subdomain and put a Cloudflare Access policy in front of it if individual access control is needed.
-3. Run `npx wrangler d1 migrations apply DB --remote` and `npm run deploy`. The new tables avoid modifying the previous `scans` table. Only migrate old personal data if its ownership and consent can be established. Disable the previous Worker routes once the replacement has been verified.
-4. Run the camera and history checks on the actual HTTPS deployment. Verify a new row using `npx wrangler d1 execute DB --remote --command "SELECT item, timestamp FROM pilot_scans ORDER BY timestamp DESC LIMIT 5"`.
-5. Before collecting pilot measurements, validate the estimates on consenting participants against tape and ruler measurements, and publish the pilot privacy notice and retention terms. Test mobile browsers on physical devices.
+```sql
+insert into public.vendor_accounts (user_id, brand)
+select id, 'Example Brand'
+from auth.users
+where email = 'vendor@example.com' and email_confirmed_at is not null;
+```
 
-### Virtual try-on configuration
+The dashboard lets approved vendors publish and unpublish their own listings. Each listing includes an image, NGN price, sizes, optional size chart and tags, and an HTTPS vendor checkout or WhatsApp link. Published entries feed wardrobe search. Photos uploaded to the bucket are public product assets. Unpublishing removes a listing from search and its public image URL remains accessible.
 
-Revoke the previously exposed Replicate token. If try-on is approved, create a new token and add it using `npx wrangler secret put REPLICATE_API_TOKEN`. Keep the token out of frontend files, GitHub and chat.
+## Vercel preview
 
-The bundled IDM-VTON version is labelled non-commercial by its publisher. It remains disabled unless `ENABLE_NONCOMMERCIAL_TRY_ON=true` is explicitly set for a non-commercial evaluation. For a commercial pilot, configure a licensed Replicate model version via `TRY_ON_MODEL_VERSION`. It must accept the IDM-VTON request fields used in `worker.mjs` and return an image, or the Worker adapter must be updated and tested against that provider. `TRY_ON_DAILY_LIMIT` caps starts across the pilot and defaults to 20 UTC-day starts. A failed provider submission still consumes one start. Confirm provider image handling and spending controls before enabling try-on.
+Import the GitHub repo or open its Vercel project and add `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` to the Preview environment. Deploy the draft PR branch. Vercel detects the build command, output directory and API rewrites from `vercel.json`.
+
+1. In a camera-enabled browser, open the body scanner and wait for **Vision system ready**. Capture front and side views to generate an estimated size. Open the full-screen foot scanner and measure against real A4 paper or enter a ruler measurement.
+2. Sign in, enable **Save future scans to my account** and complete a scan. Reload and confirm it appears. Sign in as a second user and confirm the first user's history is absent.
+3. Sign in as an approved vendor, publish a tagged test listing, then search the catalogue by the garment, brand or tags. Unpublish it and search again. Confirm ordinary users cannot publish and a second vendor cannot modify the listing.
+
+Fit estimates should be compared against tape and ruler measurements on physical devices before pilot rollout. Scan photos stay in browser memory and the history API stores only the item, estimates and creation time.
+
+## Local virtual try-on
+
+The pinned IDM-VTON model is licensed for non-commercial use. In a local research environment, add your Replicate token and the version below to `.env.local`. Sign in to run try-on. The local server applies a per-process daily limit and sends photos to Replicate after browser confirmation. Vercel previews and production builds keep try-on disabled.
+
+```dotenv
+TRY_ON_MODEL_VERSION=0513734a452173b8173e907e3a59d19a36266e55b48528559432bd21c7d7e985
+```
 
 ## Store integration
 
-Load the sizing guide module from the HTTPS Faishonix deployment and mount it on a product page. The shopper opens Faishonix in a separate tab, so the store page does not receive camera data or measurements.
-
-```html
-<div id="size-guide"></div>
-<script type="module">
-  import {mountSizeGuide} from 'https://YOUR-FAISHONIX-DOMAIN/store-sdk.js';
-  mountSizeGuide(document.querySelector('#size-guide'), {
-    origin: 'https://YOUR-FAISHONIX-DOMAIN',
-    mode: 'body'
-  });
-</script>
-```
-
-Use `shoes` for a footwear product page. For a cross-origin module import, serve the SDK with an appropriate CORS header. The Worker serves this standalone module publicly so that the storefront can load it before the shopper signs in to Faishonix.
-
-The Shopify block in `integrations/shopify/blocks` can be copied into the `blocks/` directory of a Shopify CLI-generated theme app extension. Deploy the extension through the linked Shopify app and add the block to a product template. Enter your Faishonix URL with the optional `#shoe-scan` fragment. This integration launches sizing and does not require access to the merchant's catalog. A store installation and catalog integration require a Shopify app and development store.
+Load the store SDK from your deployed origin and mount a sizing link with `mountSizeGuide(container, {origin, mode: 'body'})`. Use mode `shoes` for footwear. The guide opens in its own tab. The Shopify theme app block under `integrations/shopify/blocks` is a sizing link and the native vendor catalogue is available independently.

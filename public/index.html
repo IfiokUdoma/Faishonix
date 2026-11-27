@@ -595,6 +595,22 @@ footer{background:var(--dark);color:rgba(255,255,255,0.6);padding:48px;display:g
   </div>
 </div>
 
+<section class="section" id="scan-history">
+  <h2 class="section-title">Your previous scans</h2>
+  <form id="account-form" class="account-form">
+    <label>Email <input name="email" type="email" autocomplete="email" maxlength="254" required></label>
+    <label>Password <input name="password" type="password" autocomplete="current-password" maxlength="128" required></label>
+    <div><button class="btn-dark" type="submit" value="signin">Sign in</button>
+    <button class="mood-tag" type="submit" value="signup">Create account</button></div>
+  </form>
+  <p role="status" id="account-status"></p>
+  <button class="mood-tag" id="signout" type="button" hidden>Sign out</button>
+  <label class="history-toggle"><input type="checkbox" id="history-consent" disabled> Save future scans to my account</label>
+  <p role="status" id="history-status"></p>
+  <ul></ul>
+  <button class="btn-dark" type="button" id="history-delete" disabled>Clear saved scans</button>
+</section>
+
 <hr class="divider">
 
 <!-- VIRTUAL TRY-ON -->
@@ -624,7 +640,7 @@ footer{background:var(--dark);color:rgba(255,255,255,0.6);padding:48px;display:g
       <label class="form-label" for="tryon-category">Garment category</label>
       <select id="tryon-category"><option value="upper_body">Tops and jackets</option><option value="lower_body">Trousers and skirts</option><option value="dresses">Dresses</option></select>
       <button class="btn-primary" id="tryon-btn" onclick="runTryOn()" disabled style="width:100%;justify-content:center;margin-top:14px">✨ Generate Try-On</button>
-      <div style="font-size:11px;color:var(--gray);margin-top:8px;text-align:center">Virtual try-on requires a configured image provider.</div>
+      <div style="font-size:11px;color:var(--gray);margin-top:8px;text-align:center">Virtual try-on is available in the local research build.</div>
     </div>
 
     <div>
@@ -700,6 +716,8 @@ footer{background:var(--dark);color:rgba(255,255,255,0.6);padding:48px;display:g
       <button type="button" class="mood-tag" onclick="setMood(this,'Romantic & soft')">🌸 Romantic</button>
       <button type="button" class="mood-tag" onclick="setMood(this,'Street style & edgy')">🖤 Street</button>
     </div>
+    <p role="status" id="catalogue-status"></p>
+    <div class="catalogue-grid" id="catalogue-results"></div>
     <div class="wardrobe-results" id="wardrobe-results" style="display:none"></div>
     <div id="wardrobe-placeholder" style="text-align:center;padding:32px 0;color:var(--gray);font-size:14px">
       Search by occasion, garment or style, or pick a mood above.
@@ -708,6 +726,24 @@ footer{background:var(--dark);color:rgba(255,255,255,0.6);padding:48px;display:g
 </div>
 
 <!-- FOOTER -->
+<section class="section" id="vendor">
+  <h2 class="section-title">Vendor dashboard</h2>
+  <p class="section-sub">Publish clothing to wardrobe search. Shoppers order through your purchase link.</p>
+  <p id="vendor-status" role="status">Sign in with an approved vendor account.</p>
+  <form id="vendor-form" class="vendor-form" hidden>
+    <label>Product name <input name="name" maxlength="100" required></label>
+    <label>Price (₦) <input name="price" type="number" min="0.01" max="10000000" step="0.01" required></label>
+    <label>Description <textarea name="description" maxlength="500" required></textarea></label>
+    <label>Search tags <input name="tags" placeholder="Lagos wedding, Ankara, formal" maxlength="180"></label>
+    <label>Available sizes <input name="sizes" placeholder="S, M, L" maxlength="120" required></label>
+    <label>Size chart <textarea name="size_chart" placeholder="M: chest 95–100 cm" maxlength="500"></textarea></label>
+    <label>Purchase link <input name="purchase_url" type="url" placeholder="https://…" maxlength="500" required></label>
+    <label>Product photo (up to 2 MB) <input name="photo" type="file" accept="image/jpeg,image/png,image/webp" required></label>
+    <button class="btn-dark" type="submit">Publish listing</button>
+  </form>
+  <div class="catalogue-grid" id="vendor-list"></div>
+</section>
+
 <footer>
   <div>
     <div class="footer-logo">Faish<span>onix</span></div>
@@ -926,7 +962,7 @@ function checkScanReady(){
   if(ready)btn.textContent='Generate my size';
 }
 function checkTryOnReady(){
-  document.getElementById('tryon-btn').disabled=!((captures.front||captures.tryon)&&garmentUrl);
+  document.getElementById('tryon-btn').disabled=!(typeof tryOnEnabled!=='undefined'&&tryOnEnabled&&accountEmail&&(captures.front||captures.tryon)&&garmentUrl);
 }
 
 // ═══════════════════════════════════════
@@ -1049,7 +1085,7 @@ async function runBodyScan(){
   scanBtn.textContent='✓ Size generated · Retake scan to recalculate';
 
   // save to D1
-  saveToD1({item:selectedItem,measurements:result});
+  saveScan({item:selectedItem,measurements:result});
 }
 
 function fallbackMeasurements(h,w,gender,bodyType){
@@ -1540,7 +1576,7 @@ function runShoeScan(){
   document.getElementById('shoe-results-panel').scrollIntoView({block:'nearest'});
   shoeResultLocked=true;
   document.getElementById('shoe-btn').disabled=true;
-  saveToD1({item:'shoes',measurements:{left:sizes[0],right:sizes[1]??null,size:lookupShoe(Math.max(...sizes),gender)[5]}});
+  saveScan({item:'shoes',measurements:{left:sizes[0],right:sizes[1]??null,size:lookupShoe(Math.max(...sizes),gender)[5]}});
 }
 
 function handleGarment(e){

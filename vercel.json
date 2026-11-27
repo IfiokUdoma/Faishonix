@@ -1,0 +1,64 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "framework": null,
+  "buildCommand": "npm run build",
+  "outputDirectory": "public",
+  "rewrites": [
+    {
+      "source": "/faishonix",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/api/style",
+      "destination": "/api/router?route=style"
+    },
+    {
+      "source": "/api/auth",
+      "destination": "/api/router?route=auth"
+    },
+    {
+      "source": "/api/wardrobe",
+      "destination": "/api/router?route=wardrobe"
+    },
+    {
+      "source": "/api/session",
+      "destination": "/api/router?route=session"
+    },
+    {
+      "source": "/api/scans",
+      "destination": "/api/router?route=scans"
+    },
+    {
+      "source": "/api/vendor",
+      "destination": "/api/router?route=vendor"
+    },
+    {
+      "source": "/api/try-on",
+      "destination": "/api/router?route=try-on"
+    },
+    {
+      "source": "/api/try-on/:id",
+      "destination": "/api/router?route=try-on/:id"
+    }
+  ],
+  "headers": [
+    {
+      "source": "/store-sdk.js",
+      "headers": [
+        {
+          "key": "Access-Control-Allow-Origin",
+          "value": "*"
+        }
+      ]
+    },
+    {
+      "source": "/(.*)",
+      "headers": [
+        {
+          "key": "X-Content-Type-Options",
+          "value": "nosniff"
+        }
+      ]
+    }
+  ]
+}
