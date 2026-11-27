@@ -124,19 +124,11 @@ async function scans(request,db){
   return json({ok:true},201);
 }
 
-function httpsUrl(value){
-  try{
-    const url=new URL(value);
-    return url.protocol==='https:'&&!url.username&&!url.password?url.href:null;
-  }catch{return null;}
-}
-
 function productCards(db,rows){
   return rows.flatMap(row=>{
     const {photo_path,...product}=row;
-    const purchase_url=httpsUrl(product.purchase_url);
-    if(!purchase_url)return [];
-    return [{...product,purchase_url,photo_url:db.storage.from(bucket).getPublicUrl(photo_path).data.publicUrl}];
+    delete product.purchase_url;
+    return [{...product,photo_url:db.storage.from(bucket).getPublicUrl(photo_path).data.publicUrl}];
   });
 }
 
@@ -162,13 +154,14 @@ async function wardrobe(request,db){
   const input=await readJson(request,2048);
   const query=typeof input?.query==='string'?input.query.trim():'';
   const category=typeof input?.category==='string'&&Object.hasOwn(garmentSearch,input.category)?garmentSearch[input.category]:null;
-  if(!category&&(!query||query.length>180))return json({error:'Enter a garment, brand or occasion.'},400);
+  const browse=input?.browse===true;
+  if(!browse&&!category&&(!query||query.length>180))return json({error:'Enter a garment, brand or occasion.'},400);
   const terms=query.match(/[\p{L}\p{N}]{2,}/gu)?.slice(0,12)||[];
   const items=styleSuggestions(query,input.gender);
-  if(!category&&!terms.length)return json({error:'Enter a garment, brand or occasion.'},422);
+  if(!browse&&!category&&!terms.length)return json({error:'Enter a garment, brand or occasion.'},422);
   let catalogue=db.from('vendor_products').select(productFields).eq('published',true);
-  catalogue=category?catalogue.eq('category',input.category):
-    catalogue.textSearch('search_terms',terms.join(' OR '),{type:'websearch',config:'english'});
+  if(category)catalogue=catalogue.eq('category',input.category);
+  else if(!browse)catalogue=catalogue.textSearch('search_terms',terms.join(' OR '),{type:'websearch',config:'english'});
   const {data,error}=await catalogue.order('created_at',{ascending:false}).limit(24);
   if(error)throw error;
   return json({items,products:productCards(db,data)});
@@ -277,14 +270,14 @@ async function vendorProducts(request,db,user){
   const name=read('name'),description=read('description'),tags=read('tags'),sizes=read('sizes'),size_chart=read('size_chart');
   const category=read('category');
   const price=read('price'),price_kobo=Math.round(Number(price)*100);
-  const purchase_url=httpsUrl(read('purchase_url'));
+  const purchase_url=new URL('/orders',request.url).href;
   const image=form.get('photo');
   const types={'image/jpeg':'jpg','image/png':'png','image/webp':'webp'};
   const ext=types[image?.type];
   if(!Object.hasOwn(fitFields,category)||!name||name.length>100||!description||description.length>500||tags.length>180||!sizes||sizes.length>120||size_chart.length>500||
     !/^\d{1,8}(\.\d{1,2})?$/.test(price)||price_kobo<1||price_kobo>1e9||!purchase_url||purchase_url.length>500||
     !(image instanceof File)||!ext||image.size<12||image.size>2_097_152){
-    return json({error:'Check the required listing fields, HTTPS purchase link and JPEG, PNG or WebP photo.'},400);
+    return json({error:'Check the required listing fields, and JPEG, PNG or WebP photo.'},400);
   }
   const magic=Buffer.from(await image.slice(0,12).arrayBuffer());
   const valid=ext==='jpg'?magic.subarray(0,3).equals(Buffer.from([255,216,255])):

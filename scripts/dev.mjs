@@ -23,7 +23,7 @@ createServer(async(req,res)=>{
       else res.end();
       return;
     }
-    const path=resolve(root,'.'+(['/', '/faishonix'].includes(url.pathname)?'/index.html':decodeURIComponent(url.pathname)));
+    const path=resolve(root,'.'+(['/', '/faishonix', '/shop', '/body-scan', '/foot-scan', '/wardrobe', '/orders', '/account', '/vendor', '/try-on'].includes(url.pathname)?'/index.html':decodeURIComponent(url.pathname)));
     if(!path.startsWith(root+sep)){res.writeHead(403).end();return;}
     const content=await readFile(path);
     res.writeHead(200,{'Content-Type':types[extname(path)]||'application/octet-stream'});

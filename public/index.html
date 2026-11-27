@@ -289,18 +289,20 @@ footer{background:var(--dark);color:rgba(255,255,255,0.6);padding:48px;display:g
 
 <!-- NAV -->
 <nav>
-  <a class="logo brand-lockup" href="#" aria-label="Faishonix home"><img src="/brand/faishonix-mark.svg" alt="" width="36" height="36">Faish<span>onix</span></a>
+  <a class="logo brand-lockup" href="/" aria-label="Faishonix home"><img src="/brand/faishonix-mark.svg" alt="" width="36" height="36">Faish<span>onix</span></a>
   <div class="nav-links">
-    <a href="#scanner">Body Scan</a>
-    <a href="#shoe-scan">Shoe Size</a>
-    <a href="#tryon">Try-On</a>
-    <a href="#wardrobe">Your Wardrobe</a>
+    <a href="/shop">Shop</a>
+    <a href="/body-scan">Body scan</a>
+    <a href="/foot-scan">Foot scan</a>
+    <a href="/wardrobe">Wardrobe</a>
+    <a href="/orders">Orders</a>
+    <a href="/account">Account</a>
   </div>
-  <a href="#vendor" class="nav-cta">Vendor Dashboard</a>
+  <a href="/vendor" class="nav-cta">Vendor dashboard</a>
 </nav>
 
 <!-- HERO -->
-<section class="hero">
+<section class="hero" data-page="/">
   <div class="hero-bg">
     <div class="hero-img active" id="himg0" style="background-image:url('https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=1400&q=80')"></div>
     <div class="hero-img" id="himg1" style="background-image:url('https://images.unsplash.com/photo-1490481651871-ab68de25d43d?w=1400&q=80')"></div>
@@ -313,20 +315,21 @@ footer{background:var(--dark);color:rgba(255,255,255,0.6);padding:48px;display:g
     <h1>Wear it before<br>you <em>buy it.</em></h1>
     <p class="hero-sub">Faishonix scans your body in seconds, suggests a size from a general fit chart, and lets you preview a garment when virtual try-on is enabled.</p>
     <div class="hero-actions">
-      <a href="#scanner" class="btn-primary">Scan My Size →</a>
-      <a href="#wardrobe" class="btn-outline">Search Wardrobe</a>
+      <a href="/shop" class="btn-primary">Shop the catalogue</a>
+      <a href="/body-scan" class="btn-outline">Scan my size</a>
+      <a href="/wardrobe" class="btn-outline">Search Wardrobe</a>
     </div>
     <div class="hero-stats">
 
-      <div><div class="stat-val">10<span>s</span></div><div class="stat-label">Full body scan time</div></div>
+
       <div><div class="stat-val">0</div><div class="stat-label">App download needed</div></div>
     </div>
   </div>
-  <div class="hero-scroll-indicator">↓ Scroll to scan</div>
+
 </section>
 
 <!-- FEATURES MARQUEE -->
-<div class="features-strip">
+<div class="features-strip" data-page="/">
   <div class="features-inner" id="marquee-inner">
     <div class="feature-pill"><span class="feature-pill-icon">⚡</span><span class="feature-pill-text">Real-time pose detection</span></div>
     <div class="feature-pill"><span class="feature-pill-icon">📐</span><span class="feature-pill-text">Physics-calibrated measurements</span></div>
@@ -346,7 +349,7 @@ footer{background:var(--dark);color:rgba(255,255,255,0.6);padding:48px;display:g
 </div>
 
 <!-- HOW IT WORKS -->
-<div class="section">
+<div class="section" data-page="/">
   <div class="section-tag">How it works</div>
   <h2 class="section-title">Four steps to your perfect fit</h2>
   <p class="section-sub">No tape measure. No guessing. No wrong orders.</p>
@@ -358,10 +361,10 @@ footer{background:var(--dark);color:rgba(255,255,255,0.6);padding:48px;display:g
   </div>
 </div>
 
-<hr class="divider">
+
 
 <!-- BODY SCANNER -->
-<div class="section" id="scanner">
+<div class="section" id="scanner" data-page="/body-scan">
   <div class="section-tag">Body Scanner</div>
   <h2 class="section-title">Find your suggested size</h2>
   <p class="section-sub">Stand 2.5m from camera. Auto-captures when your full body is in frame.</p>
@@ -393,12 +396,12 @@ footer{background:var(--dark);color:rgba(255,255,255,0.6);padding:48px;display:g
 
   <section id="custom-fit" class="scan-panel" hidden>
     <h3 id="custom-fit-title"></h3>
-    <p>Scan below to prefill estimates, then check them with a tape. Enter any missing measurements in centimetres.</p>
+    <p>Scan below to prefill estimates, then check them with a tape. Enter any missing measurements in centimetres. Payment is unavailable in this pilot build.</p>
     <form id="custom-fit-form" class="vendor-form">
       <div id="custom-fit-fields"></div>
       <label id="fit-photo-consent" class="fit-consent" hidden><input type="checkbox" name="photoConsent"> Use my front scan photo to automatically generate garment and outfit previews with FASHN.</label>
       <label class="fit-consent"><input type="checkbox" name="consent" required> Share these measurements and my account email with the vendor for this request.</label>
-      <button class="btn-dark" type="submit">Send fit request</button>
+      <button class="btn-dark" type="submit">Place order request</button>
     </form>
     <p id="custom-fit-status" role="status"></p>
     <section id="fit-preview" hidden></section>
@@ -511,10 +514,10 @@ footer{background:var(--dark);color:rgba(255,255,255,0.6);padding:48px;display:g
   </div>
 </div>
 
-<hr class="divider">
+
 
 <!-- SHOE SCANNER -->
-<div class="section" id="shoe-scan">
+<div class="section" id="shoe-scan" data-page="/foot-scan">
   <div class="section-tag">Shoe Scanner</div>
   <h2 class="section-title">Find your suggested shoe size</h2>
   <p class="section-sub">Use a measured foot length or take a top-down photo with a real A4 sheet.</p>
@@ -579,7 +582,7 @@ footer{background:var(--dark);color:rgba(255,255,255,0.6);padding:48px;display:g
   </div>
 </div>
 
-<section class="section" id="scan-history">
+<section class="section" id="scan-history" data-page="/account">
   <h2 class="section-title">Your previous scans</h2>
   <form id="account-form" class="account-form">
     <label>Email <input name="email" type="email" autocomplete="email" maxlength="254" required></label>
@@ -595,10 +598,10 @@ footer{background:var(--dark);color:rgba(255,255,255,0.6);padding:48px;display:g
   <button class="btn-dark" type="button" id="history-delete" disabled>Clear saved scans</button>
 </section>
 
-<hr class="divider">
+
 
 <!-- VIRTUAL TRY-ON -->
-<div class="section" id="tryon">
+<div class="section" id="tryon" data-page="/try-on">
   <div class="section-tag">Virtual Try-On</div>
   <h2 class="section-title">See it on you before you buy</h2>
   <p class="section-sub">Upload the garment photo from the store listing — AI renders it on your body photorealistically.</p>
@@ -656,10 +659,10 @@ footer{background:var(--dark);color:rgba(255,255,255,0.6);padding:48px;display:g
   </div>
 </div>
 
-<hr class="divider">
+
 
 <!-- SEARCH YOUR WARDROBE -->
-<div class="section" id="wardrobe">
+<div class="section" id="wardrobe" data-page="/wardrobe">
   <div class="section-tag">Search Your Wardrobe</div>
   <h2 class="section-title">Stop guessing your wear</h2>
   <p class="section-sub">Describe your occasion, mood, or style — Faishonix finds clothing that fits your body and your vibe.</p>
@@ -710,10 +713,11 @@ footer{background:var(--dark);color:rgba(255,255,255,0.6);padding:48px;display:g
 </div>
 
 <!-- FOOTER -->
-<section class="section" id="vendor">
+<section class="section" id="vendor" data-page="/vendor">
   <h2 class="section-title">Vendor dashboard</h2>
-  <p class="section-sub">Publish clothing to wardrobe search. Shoppers order through your purchase link.</p>
-  <p><a href="#scan-history" id="vendor-signin">Sign in or create your account</a> to create a vendor profile and publish products.</p>
+  <p class="section-sub">Publish clothing to wardrobe search. Shoppers find published listings in Shop. You can manage incoming fit requests under Orders.</p>
+  <p><a href="/account" id="vendor-signin">Sign in or create your account</a> to create a vendor profile and publish products.</p>
+  <p><a href="/shop">View public shop</a> · <a href="/orders">Manage orders</a></p>
   <p id="vendor-status" role="status">Sign in to open your vendor dashboard.</p>
   <form id="vendor-registration" class="account-form" hidden>
     <label>Fashion house or brand name <input name="brand" maxlength="100" required></label>
@@ -727,17 +731,23 @@ footer{background:var(--dark);color:rgba(255,255,255,0.6);padding:48px;display:g
     <label>Search tags <input name="tags" placeholder="Lagos wedding, Ankara, formal" maxlength="180"></label>
     <label>Available sizes <input name="sizes" placeholder="S, M, L" maxlength="120" required></label>
     <label>Size chart <textarea name="size_chart" placeholder="M: chest 95–100 cm" maxlength="500"></textarea></label>
-    <label>Purchase link <input name="purchase_url" type="url" placeholder="https://…" maxlength="500" required></label>
+
     <label>Product photo (up to 2 MB) <input name="photo" type="file" accept="image/jpeg,image/png,image/webp" required></label>
     <button class="btn-dark" type="submit">Publish listing</button>
   </form>
   <div class="catalogue-grid" id="vendor-list"></div>
 </section>
 
-<section class="section" id="fit-requests">
-  <h2 class="section-title">Your fit requests</h2>
+<section class="section" id="fit-requests" data-page="/orders">
+  <h2 class="section-title">Your orders and fit requests</h2>
   <p id="fit-status" role="status">Sign in to send or manage fit requests.</p>
   <div id="fit-request-list"></div>
+</section>
+<section class="section" id="shop" data-page="/shop" hidden>
+  <h1 class="section-title">Shop Faishonix</h1>
+  <p class="section-sub">Browse published garments and request your fit directly on Faishonix.</p>
+  <p id="shop-status" role="status">Loading garments…</p>
+  <div class="catalogue-grid" id="shop-results"></div>
 </section>
 <footer>
   <div>
@@ -747,10 +757,10 @@ footer{background:var(--dark);color:rgba(255,255,255,0.6);padding:48px;display:g
   </div>
   <div>
     <div class="footer-heading">Features</div>
-    <a href="#scanner" class="footer-link">Body Scanner</a>
-    <a href="#shoe-scan" class="footer-link">Shoe Scanner</a>
-    <a href="#tryon" class="footer-link">Virtual Try-On</a>
-    <a href="#wardrobe" class="footer-link">Search Wardrobe</a>
+    <a href="/body-scan" class="footer-link">Body Scanner</a>
+    <a href="/foot-scan" class="footer-link">Shoe Scanner</a>
+    <a href="/try-on" class="footer-link">Virtual Try-On</a>
+    <a href="/wardrobe" class="footer-link">Search Wardrobe</a>
   </div>
   <div>
     <div class="footer-heading">Product</div>
@@ -830,7 +840,9 @@ const SHOE_DATA=[
 // the function was defined.
 // ═══════════════════════════════════════════════════════════════
 let videoModeDetector;
-let vision = initVisionSystem();
+let vision;
+let photoDetector;
+let poseSetup;
 async function initVisionSystem() {
   if(document.readyState==='loading')await new Promise(resolve => document.addEventListener('DOMContentLoaded', resolve, {once:true}));
   try {
@@ -838,6 +850,7 @@ async function initVisionSystem() {
     const {FilesetResolver, PoseLandmarker} = await import(base + '/vision_bundle.mjs');
     const files = await FilesetResolver.forVisionTasks(base + '/wasm');
     const modelAssetPath = '/vision/pose.task';
+    poseSetup={files,PoseLandmarker,modelAssetPath};
     videoModeDetector = await PoseLandmarker.createFromOptions(files, {
       baseOptions:{modelAssetPath, delegate:'CPU'}, runningMode:'VIDEO', numPoses:1,
       minPoseDetectionConfidence:0.45, minPosePresenceConfidence:0.45, minTrackingConfidence:0.45,
@@ -1151,13 +1164,11 @@ let bestFrames={}; // stores best captured frames per view
 // Inspector 1 & 2: Person + full body visibility
 function inspectPerson(lms,view){
   if(!lms||lms.length<29)return{ok:false,msg:'No person detected'};
-  const required=view==='side'?[0,...(lms[11].visibility>lms[12].visibility?[11,23,25,27]:[12,24,26,28])]:[0,11,12,23,24,25,26,27,28];
-  const missing=[];
-  const labels={0:'head',11:'left shoulder',12:'right shoulder',23:'left hip',24:'right hip',25:'left knee',26:'right knee',27:'left ankle',28:'right ankle'};
-  for(const i of required){
-    if(!lms[i]||(lms[i].visibility||0)<0.45)missing.push(labels[i]);
-  }
-  if(missing.length>0)return{ok:false,msg:`Move back — missing: ${missing.slice(0,2).join(', ')}`};
+  const visible=i=>Boolean(lms[i]&&(lms[i].visibility??1)>=0.42&&lms[i].x>=0&&lms[i].x<=1&&lms[i].y>=0&&lms[i].y<=1);
+  const required=view==='side'?[[11,12],[23,24],[27,28]]:[[11],[12],[23,24],[27,28]];
+  const labels=view==='side'?['shoulder','hip','ankle']:['left shoulder','right shoulder','hip','ankle'];
+  const missing=labels.filter((_,index)=>!required[index].some(visible));
+  if(missing.length)return{ok:false,msg:'Show your '+missing.join(', ')+' in the camera frame'};
   return{ok:true,score:100};
 }
 
@@ -1277,6 +1288,7 @@ async function startScan(view){
   }
 
   if (!cameraAvailable()) { showToast('Open Faishonix over HTTPS in a browser with camera access.'); return; }
+  vision??=initVisionSystem();
   if(!await vision){
     setStatus('loading','Retrying the body scan model…');
     vision=initVisionSystem();
@@ -1391,8 +1403,8 @@ async function startScan(view){
 
   const manualCapture=document.createElement('button');
   manualCapture.type='button';
-  manualCapture.textContent='Capture when ready';
-  manualCapture.disabled=true;
+  manualCapture.textContent='Take photo';
+  manualCapture.disabled=false;
   const captureHint=document.createElement('p');
   captureHint.textContent='Keep your full body visible. Auto-capture remains on.';
   captureControls.replaceChildren(captureHint,manualCapture);
@@ -1406,12 +1418,41 @@ async function startScan(view){
     canvas.getContext('2d').drawImage(vid,0,0);
     bestFrames[view]={canvas,landmarks:lms,silhouette};
   };
-  manualCapture.onclick=()=>{
-    if(!candidate||captureDialog.dataset.session!==stage)return;
+  let analysing=false;
+  manualCapture.onclick=async()=>{
+    if(analysing||captureDialog.dataset.session!==stage)return;
     if(countdownTimer){clearInterval(countdownTimer);countdownTimer=null;}
-    const {landmarks,silhouette}=candidate;
-    if(!bestFrames[view])saveFrame(landmarks,silhouette);
-    finalizeScan(view);
+    countingDown=false;
+    cdDiv.style.display='none';
+    if(candidate){
+      const {landmarks,silhouette}=candidate;
+      saveFrame(landmarks,silhouette);
+      finalizeScan(view);
+      return;
+    }
+    analysing=true;
+    manualCapture.disabled=true;
+    setFeedback('Checking the captured photo…');
+    try{
+      saveFrame(null,null);
+      const frame=bestFrames[view];
+      const {files,PoseLandmarker,modelAssetPath}=poseSetup;
+      photoDetector??=await PoseLandmarker.createFromOptions(files,{
+        baseOptions:{modelAssetPath,delegate:'CPU'},runningMode:'IMAGE',
+        minPoseDetectionConfidence:.35,minPosePresenceConfidence:.35,outputSegmentationMasks:true
+      });
+      if(captureDialog.dataset.session!==stage)return;
+      photoDetector.detect(frame.canvas,result=>{
+        frame.landmarks=result.landmarks?.[0]||null;
+        frame.silhouette=silhouetteMeasures(result.segmentationMasks?.[0],frame.landmarks);
+      });
+      const inspected=inspectPerson(frame.landmarks,view);
+      if(inspected.ok&&inspectPose(frame.landmarks,view).ok){finalizeScan(view);return;}
+      bestFrames[view]=null;
+      setFeedback(inspected.ok?'Turn to the requested pose and retake.':inspected.msg,'#F0C44A');
+    }catch{
+      if(captureDialog.dataset.session===stage)setFeedback('Could not analyse the photo. Try again with your full body in frame.','#F0C44A');
+    }finally{analysing=false;manualCapture.disabled=false;}
   };
 
   // ── FCIE VIDEO LOOP ──────────────────────────────────────────
@@ -1431,6 +1472,7 @@ async function startScan(view){
 
   function fcieLoop(){
     if(!fcieLoopActive || captureDialog.dataset.session!==stage)return;
+    if(analysing){requestAnimationFrame(fcieLoop);return;}
     if(vid.readyState<2 || !vid.videoWidth || vid.currentTime===lastFrameTime) {
       requestAnimationFrame(fcieLoop);
       return;
@@ -1486,7 +1528,7 @@ async function startScan(view){
     const p=inspectPerson(lms,view);
     const pose=p.ok?inspectPose(lms,view):null;
     candidate=p.ok&&pose?.ok?{landmarks:lms,silhouette}:null;
-    manualCapture.disabled=!candidate;
+
     if(!p.ok)ctx.clearRect(0,0,oc.width,oc.height);
     scores.person=p.ok?p.score||100:0;
     if(!p.ok){
@@ -1496,7 +1538,7 @@ async function startScan(view){
       cdDiv.style.display='none';
       debugLines.push('Body: ✗ '+p.msg);
       feedback=p.msg;allOk=false;
-      setScore(15);setFeedback(feedback,'#F0C44A');
+      setScore(lms?35:0);setFeedback(feedback,'#F0C44A');
       requestAnimationFrame(fcieLoop);return;
     }
     debugLines.push('Body: ✓');

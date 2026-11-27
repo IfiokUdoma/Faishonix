@@ -112,6 +112,7 @@ async function startFootScan(side){
     document.getElementById('shoe-results-panel').classList.remove('show');
     document.getElementById('shoe-placeholder').style.display='';
     updateShoeButton();
+    if(!shoeAsym||footCaptures.left&&footCaptures.right)runShoeScan();
   }
   document.getElementById('foot-save').onclick=()=>accept(manual.valueAsNumber,'Measured length');
   const video=document.createElement('video');
@@ -269,12 +270,6 @@ function productCard(product,onToggle){
   sizes.textContent='Sizes: '+product.sizes;
   const price=document.createElement('strong');
   price.textContent=new Intl.NumberFormat('en-NG',{style:'currency',currency:'NGN'}).format(product.price_kobo/100);
-  const link=document.createElement('a');
-  link.className='btn-dark';
-  link.href=product.purchase_url;
-  link.target='_blank';
-  link.rel='noopener noreferrer';
-  link.textContent='Order from vendor';
   contents.append(brand,title,desc,sizes);
   if(product.size_chart){
     const chart=document.createElement('details');
@@ -285,7 +280,7 @@ function productCard(product,onToggle){
     chart.append(summary,guide);
     contents.append(chart);
   }
-  contents.append(price,link);
+  contents.append(price);
   if(!onToggle&&product.category){
     const pair=document.createElement('button');
     pair.type='button';
@@ -295,14 +290,14 @@ function productCard(product,onToggle){
       const queries={suit:'suit shirt loafer watch belt wallet',jacket:'blazer trouser loafer watch',dress:'dress shoe bag accessory',trouser:'shirt blazer sneaker'};
       const query=queries[product.category]||'polo jeans sneakers hoodie wallet';
       document.getElementById('wardrobe-query').value=query;
-      document.getElementById('wardrobe').scrollIntoView({behavior:'smooth'});
+      displayPage('/wardrobe',true);
       searchWardrobe(product.id);
     };
     contents.append(pair);
     const fit=document.createElement('button');
     fit.type='button';
     fit.className='mood-tag';
-    fit.textContent='Request made to measure';
+    fit.textContent='Continue to fit checkout';
     fit.onclick=()=>openCustomFit(product);
     contents.append(fit);
   }
@@ -334,7 +329,7 @@ function productCard(product,onToggle){
         const photo=await response.blob();
         if(!['image/jpeg','image/png','image/webp'].includes(photo.type)||photo.size>2_097_152)throw new Error('Invalid photo');
         loadGarmentPhoto(photo);
-        document.getElementById('tryon').scrollIntoView({behavior:'smooth'});
+        displayPage('/try-on',true);
       }catch{showToast('Could not load the vendor photo for try-on.');}
       finally{tryButton.disabled=false;}
     };
@@ -380,7 +375,7 @@ const historyDelete=document.getElementById('history-delete');
 const accountForm=document.getElementById('account-form');
 const accountStatus=document.getElementById('account-status');
 const confirmedEmail=new URLSearchParams(location.search).get('confirmed')==='1';
-if(confirmedEmail)location.hash='scan-history';
+if(confirmedEmail)history.replaceState(null,'','/account'+location.search);
 const signOut=document.getElementById('signout');
 const vendorForm=document.getElementById('vendor-form');
 const vendorRegistration=document.getElementById('vendor-registration');
@@ -403,6 +398,7 @@ function loadCategories(select){
 loadCategories(vendorForm.elements.category);
 
 function openCustomFit(product){
+  displayPage('/body-scan',true);
   fitProduct=product;
   previewGeneration++;
   previewedPhoto=null;
@@ -501,11 +497,11 @@ async function continueFitWithPreview(category){
     const pairing=products.find(item=>item.id!==product.id);
     if(!pairing){status.textContent='Preview ready. No matching garment is listed yet.';return;}
     appendVisual(visuals,pairing.photo_url,pairing.name+' · '+pairing.brand);
-    const shop=document.createElement('a');
-    shop.href=pairing.purchase_url;
-    shop.target='_blank';
-    shop.rel='noopener noreferrer';
-    shop.textContent='Shop '+pairing.name;
+    const shop=document.createElement('button');
+    shop.type='button';
+    shop.className='mood-tag';
+    shop.textContent='Fit checkout for '+pairing.name;
+    shop.onclick=()=>openCustomFit(pairing);
     visuals.lastElementChild.append(shop);
     if(['dress','suit','traditional'].includes(category)){
       status.textContent='Garment preview and a catalogue pairing are ready.';
@@ -568,7 +564,7 @@ fitForm.onsubmit=async event=>{
   event.preventDefault();
   if(!accountEmail){
     fitFormStatus.textContent='Sign in, then return here to send your fit request.';
-    document.getElementById('scan-history').scrollIntoView({behavior:'smooth'});
+    displayPage('/account',true);
     return;
   }
   const generation=accountGeneration;
@@ -580,7 +576,7 @@ fitForm.onsubmit=async event=>{
     await api('/api/fit-requests',{productId,measurements:dimensions,consent:fitForm.elements.consent.checked});
     if(generation!==accountGeneration)return;
     if(fitProduct?.id===productId){
-      fitFormStatus.textContent='Request sent. Your vendor can accept or decline it. Payment and delivery are arranged with the vendor.';
+      fitFormStatus.textContent='Request sent. Your vendor can accept or decline it. You can follow its status under Orders. Payment is unavailable in this pilot.';
       fitForm.elements.consent.checked=false;
     }
     await loadFitRequests(generation);
@@ -749,4 +745,45 @@ document.addEventListener('keydown',event=>{
   }
 });
 
-loadScannerCatalogue(selectedItem);
+const pagePaths=new Set([...document.querySelectorAll('[data-page]')].map(section=>section.dataset.page));
+const legacyPages={'#scanner':'/body-scan','#shoe-scan':'/foot-scan','#vendor':'/vendor','#wardrobe':'/wardrobe','#tryon':'/try-on','#fit-requests':'/orders','#scan-history':'/account'};
+let pagePath;
+async function loadShop(){
+  const list=document.getElementById('shop-results');
+  const status=document.getElementById('shop-status');
+  status.textContent='Loading garments…';
+  try{
+    const {products}=await api('/api/wardrobe',{browse:true});
+    list.replaceChildren(...products.map(product=>productCard(product)));
+    status.textContent=products.length?'':'No published garments yet.';
+  }catch(error){status.textContent=error.message;}
+}
+function displayPage(path,push=false){
+  if(!pagePaths.has(path))path='/';
+  if(push&&location.pathname!==path)history.pushState(null,'',path);
+  if(pagePath===path)return;
+  closeCapture();
+  pagePath=path;
+  for(const section of document.querySelectorAll('[data-page]'))section.hidden=section.dataset.page!==path;
+  for(const link of document.querySelectorAll('nav a')){
+    if(link.getAttribute('href')===path)link.setAttribute('aria-current','page');
+    else link.removeAttribute('aria-current');
+  }
+  window.scrollTo(0,0);
+  if(path==='/shop')loadShop();
+  if(path==='/body-scan'){
+    vision??=initVisionSystem();
+    loadScannerCatalogue(selectedItem);
+  }
+  if(path==='/orders'&&accountEmail)loadFitRequests();
+}
+document.addEventListener('click',event=>{
+  const link=event.target.closest('a[href]');
+  if(event.defaultPrevented||event.button!==0||event.metaKey||event.ctrlKey||event.shiftKey||event.altKey||!link)return;
+  const path=link.getAttribute('href');
+  if(!pagePaths.has(path))return;
+  event.preventDefault();
+  displayPage(path,true);
+});
+window.addEventListener('popstate',()=>displayPage(legacyPages[location.hash]||location.pathname));
+displayPage(confirmedEmail?'/account':legacyPages[location.hash]||location.pathname);

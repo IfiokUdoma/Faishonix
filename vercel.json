@@ -47,6 +47,38 @@
     {
       "source": "/api/fit-requests",
       "destination": "/api/router?route=fit-requests"
+    },
+    {
+      "source": "/shop",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/body-scan",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/foot-scan",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/wardrobe",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/orders",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/account",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/vendor",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/try-on",
+      "destination": "/index.html"
     }
   ],
   "headers": [
