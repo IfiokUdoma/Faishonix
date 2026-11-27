@@ -190,7 +190,7 @@ async function suggest(query,gender){
   return (await api('/api/style',{query,gender})).items;
 }
 
-async function searchWardrobe(){
+async function searchWardrobe(excludeProductId){
   const section=document.getElementById('wardrobe');
   const query=document.getElementById('wardrobe-query').value;
   const gender=document.getElementById('wardrobe-gender').value;
@@ -203,9 +203,10 @@ async function searchWardrobe(){
   document.getElementById('wardrobe-results').style.display='none';
   document.getElementById('wardrobe-placeholder').style.display='none';
   try{
-    const {items,products}=await api('/api/wardrobe',{query,gender});
+    const {items,products:matches}=await api('/api/wardrobe',{query,gender});
+    const products=matches.filter(product=>product.id!==excludeProductId);
     if(section.dataset.search!==request)return;
-    status.textContent=products.length?'Shop vendor listings':'No vendor listings match your search.';
+    status.textContent=products.length?'Shop vendor listings':items.length?'Style ideas below. No matching vendor listings yet.':'No vendor listings match yet. Try a garment, fabric or occasion.';
     list.replaceChildren(...products.map(product=>productCard(product)));
     if(items.length)renderWardrobeResults(items);
   }catch(error){
@@ -266,6 +267,41 @@ function productCard(product,onToggle){
     contents.append(chart);
   }
   contents.append(price,link);
+  if(!onToggle&&product.category){
+    const pair=document.createElement('button');
+    pair.type='button';
+    pair.className='mood-tag';
+    pair.textContent='Find matching pieces';
+    pair.onclick=()=>{
+      const queries={suit:'suit shirt loafer watch belt wallet',jacket:'blazer trouser loafer watch',dress:'dress shoe bag accessory',trouser:'shirt blazer sneaker'};
+      const query=queries[product.category]||'polo jeans sneakers hoodie wallet';
+      document.getElementById('wardrobe-query').value=query;
+      document.getElementById('wardrobe').scrollIntoView({behavior:'smooth'});
+      searchWardrobe(product.id);
+    };
+    contents.append(pair);
+    const fit=document.createElement('button');
+    fit.type='button';
+    fit.className='mood-tag';
+    fit.textContent='Request made to measure';
+    fit.onclick=()=>openCustomFit(product);
+    contents.append(fit);
+  }
+  if(onToggle&&!product.category){
+    const label=document.createElement('label');
+    label.textContent='Set garment type for custom fit';
+    const select=document.createElement('select');
+    loadCategories(select);
+    select.onchange=async()=>{
+      if(!select.value)return;
+      select.disabled=true;
+      try{await api('/api/vendor',{id:product.id,category:select.value},'PATCH');await loadVendor();}
+      catch(error){vendorStatus.textContent=error.message;}
+      finally{select.disabled=false;}
+    };
+    label.append(select);
+    contents.append(label);
+  }
   if(!onToggle&&tryOnEnabled&&accountEmail){
     const tryButton=document.createElement('button');
     tryButton.className='mood-tag';
@@ -328,6 +364,119 @@ const confirmedEmail=new URLSearchParams(location.search).get('confirmed')==='1'
 if(confirmedEmail)location.hash='scan-history';
 const signOut=document.getElementById('signout');
 const vendorForm=document.getElementById('vendor-form');
+const vendorRegistration=document.getElementById('vendor-registration');
+const fitStatus=document.getElementById('fit-status');
+const fitList=document.getElementById('fit-request-list');
+const customFit=document.getElementById('custom-fit');
+const fitForm=document.getElementById('custom-fit-form');
+const fitFormStatus=document.getElementById('custom-fit-status');
+let fitProduct=null;
+const fitLabels={...FL,garment_length:'Desired garment length'};
+
+function loadCategories(select){
+  select.replaceChildren(new Option('Choose garment type',''),...Object.entries(ITEMS).map(([key,item])=>new Option(item.label,key)));
+}
+loadCategories(vendorForm.elements.category);
+
+function openCustomFit(product){
+  fitProduct=product;
+  selectItem(product.category);
+  document.getElementById('custom-fit-title').textContent=product.name+' · '+product.brand;
+  const fields=new Set(ITEMS[product.category].fields);
+  if(product.category==='dress')fields.add('shoulder');
+  if(product.category==='suit')fields.add('hips');
+  if(!['trouser','shorts'].includes(product.category))fields.add('garment_length');
+  const inputs=[...fields].map(field=>{
+    const label=document.createElement('label');
+    label.textContent=fitLabels[field]+' (cm)';
+    const input=document.createElement('input');
+    Object.assign(input,{name:field,type:'number',min:'1',max:'300',step:'0.1',required:true});
+    label.append(input);
+    return label;
+  });
+  document.getElementById('custom-fit-fields').replaceChildren(...inputs);
+  fitForm.elements.consent.checked=false;
+  fitFormStatus.textContent='';
+  customFit.hidden=false;
+  customFit.scrollIntoView({behavior:'smooth'});
+}
+
+function prefillCustomFit(category,result,fromPose){
+  if(fitProduct?.category!==category||!fromPose)return;
+  for(const input of document.querySelectorAll('#custom-fit-fields input')){
+    const value=result[input.name];
+    if(input.value===''&&Number.isFinite(value)&&result.sources?.[input.name]!=='Lookup estimate')input.value=String(Math.round(value*10)/10);
+  }
+  fitFormStatus.textContent='Scan estimates are ready for review. Check them with a tape and fill in the remaining fields.';
+  customFit.scrollIntoView({behavior:'smooth'});
+}
+
+async function loadFitRequests(generation=accountGeneration){
+  try{
+    const {requests}=await api('/api/fit-requests');
+    if(generation!==accountGeneration)return;
+    fitStatus.textContent=requests.length?'':'No fit requests yet.';
+    fitList.replaceChildren(...requests.map(request=>{
+      const card=document.createElement('article');
+      card.className='scan-panel fit-request-card';
+      const title=document.createElement('h3');
+      title.textContent=(request.vendor_products?.name||'Garment')+' · '+request.status;
+      const desc=document.createElement('p');
+      desc.textContent=request.incoming?'Customer: '+request.customer_email:'Vendor: '+(request.vendor_products?.brand||'Listing unavailable');
+      const measure=document.createElement('p');
+      measure.textContent=Object.entries(request.measurements).map(([key,value])=>(fitLabels[key]||key)+': '+value+' cm').join(' · ');
+      card.append(title,desc,measure);
+      if(request.incoming&&request.status==='requested'){
+        for(const status of ['accepted','declined']){
+          const button=document.createElement('button');
+          button.className='mood-tag';
+          button.textContent=status==='accepted'?'Accept request':'Decline request';
+          button.onclick=async()=>{
+            button.disabled=true;
+            try{await api('/api/fit-requests',{id:request.id,status},'PATCH');await loadFitRequests(generation);}
+            catch(error){if(generation===accountGeneration)fitStatus.textContent=error.message;}
+            finally{button.disabled=false;}
+          };
+          card.append(button);
+        }
+      }
+      return card;
+    }));
+  }catch(error){if(generation===accountGeneration)fitStatus.textContent=error.message;}
+}
+
+fitForm.onsubmit=async event=>{
+  event.preventDefault();
+  if(!accountEmail){
+    fitFormStatus.textContent='Sign in, then return here to send your fit request.';
+    document.getElementById('scan-history').scrollIntoView({behavior:'smooth'});
+    return;
+  }
+  const generation=accountGeneration;
+  const productId=fitProduct.id;
+  const button=event.submitter;
+  const dimensions=Object.fromEntries([...document.querySelectorAll('#custom-fit-fields input')].map(input=>[input.name,input.valueAsNumber]));
+  button.disabled=true;
+  try{
+    await api('/api/fit-requests',{productId,measurements:dimensions,consent:fitForm.elements.consent.checked});
+    if(generation!==accountGeneration)return;
+    if(fitProduct?.id===productId){
+      fitFormStatus.textContent='Request sent. Your vendor can accept or decline it. Payment and delivery are arranged with the vendor.';
+      fitForm.elements.consent.checked=false;
+    }
+    await loadFitRequests(generation);
+  }catch(error){if(generation===accountGeneration)fitFormStatus.textContent=error.message;}
+  finally{button.disabled=false;}
+};
+
+vendorRegistration.onsubmit=async event=>{
+  event.preventDefault();
+  const button=event.submitter;
+  button.disabled=true;
+  try{await api('/api/vendor-registration',{brand:new FormData(vendorRegistration).get('brand')});await loadVendor();}
+  catch(error){vendorStatus.textContent=error.message;}
+  finally{button.disabled=false;}
+};
 const vendorStatus=document.getElementById('vendor-status');
 const vendorList=document.getElementById('vendor-list');
 let accountEmail=null;
@@ -382,6 +531,9 @@ async function loadVendor(generation=accountGeneration){
   try{
     const {brand,products}=await api('/api/vendor');
     if(generation!==accountGeneration)return;
+    vendorRegistration.hidden=Boolean(brand);
+    vendorForm.hidden=!brand;
+    if(!brand){vendorStatus.textContent='Create your vendor profile to start publishing.';return;}
     vendorStatus.textContent=products.length?brand:`${brand} · No listings yet.`;
     vendorForm.hidden=false;
     vendorList.replaceChildren(...products.map(product=>productCard(product,toggleListing)));
@@ -394,12 +546,15 @@ async function loadSession(){
   vendorList.replaceChildren();
   vendorForm.reset();
   vendorForm.hidden=true;
+  vendorRegistration.hidden=true;
+  fitList.replaceChildren();
+  fitStatus.textContent='Sign in to send or manage fit requests.';
   accountEmail=null;
   historyConsent.checked=false;
   historyConsent.disabled=true;
   historyDelete.disabled=true;
   historyStatus.textContent='Sign in to view or save scans.';
-  vendorStatus.textContent='Sign in with an approved vendor account.';
+  vendorStatus.textContent='Sign in to open your vendor dashboard.';
   try{
     const session=await api('/api/session');
     if(generation!==accountGeneration)return;
@@ -412,7 +567,7 @@ async function loadSession(){
     if(accountEmail){
       historyConsent.disabled=false;
       historyConsent.checked=localStorage.getItem(consentKey())==='true';
-      await Promise.all([loadHistory(generation),loadVendor(generation)]);
+      await Promise.all([loadHistory(generation),loadVendor(generation),loadFitRequests(generation)]);
     }
   }catch(error){if(generation===accountGeneration)accountStatus.textContent=error.message;}
 }
@@ -434,7 +589,7 @@ accountForm.onsubmit=async event=>{
 
 signOut.onclick=async()=>{
   signOut.disabled=true;
-  try{await api('/api/auth',{action:'signout'});await loadSession();}
+  try{await api('/api/auth',{action:'signout'});fitProduct=null;customFit.hidden=true;fitForm.reset();document.getElementById('custom-fit-fields').replaceChildren();await loadSession();}
   catch(error){accountStatus.textContent=error.message;}
   finally{signOut.disabled=false;}
 };

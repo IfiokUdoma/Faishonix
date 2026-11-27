@@ -15,18 +15,11 @@ Open http://127.0.0.1:3000. The first build downloads and verifies a pinned Medi
 
 ## Supabase setup
 
-Apply the migration under `supabase/migrations/` to the dedicated Faishonix project. For project `mnwxegdquaglauykcrty`, it has already been applied. It creates private, account-scoped scan history, vendor approvals and catalogue listings, and a `vendor-photos` bucket for public product photos. Enable email/password Auth and configure the Auth Site URL and email confirmation links for your deployment. Configure SMTP or provision confirmed pilot accounts in the Supabase dashboard for testing.
+Apply the migrations under `supabase/migrations/` to the dedicated Faishonix project. They create private scan history, vendor profiles, catalogue listings, fit requests and a `vendor-photos` bucket for public product photos. Enable email/password Auth and configure Site URL and email confirmation links for your deployment. Configure SMTP for the pilot.
 
-To approve a vendor, first have them create and confirm an account. From the Faishonix SQL editor, run the following after substituting their confirmed account email and brand:
+After confirming their email and signing in, a vendor creates a profile from **Vendor Dashboard**. Registration is self-service. Brand names are supplied by account owners. Vendors choose a garment type and publish a photo, NGN price, sizes, optional size chart and tags, and a purchase link. Older listings can add their garment type in the dashboard. Published entries feed wardrobe and scanner searches.
 
-```sql
-insert into public.vendor_accounts (user_id, brand)
-select id, 'Example Brand'
-from auth.users
-where email = 'vendor@example.com' and email_confirmed_at is not null;
-```
-
-The dashboard lets approved vendors publish and unpublish their own listings. Each listing includes an image, NGN price, sizes, optional size chart and tags, and an HTTPS vendor checkout or WhatsApp link. Published entries feed wardrobe search. Photos uploaded to the bucket are public product assets. Unpublishing removes a listing from search and its public image URL remains accessible.
+A signed-in shopper can select **Request made to measure** on a listing. The form accepts reviewed camera estimates or tape measurements and requires any additional dimensions for the garment. Sending shares the measurements and account email with that vendor. Either party can see the request in **Your fit requests**. The vendor can accept or decline. Payment, price confirmation and fulfilment are arranged directly with the vendor.
 
 ## Vercel preview
 
@@ -34,7 +27,7 @@ Import the GitHub repo or open its Vercel project and add `NEXT_PUBLIC_SUPABASE_
 
 1. In a camera-enabled browser, open the body scanner and wait for **Vision system ready**. Capture front and side views to generate an estimated size. Open the full-screen foot scanner and measure against real A4 paper or enter a ruler measurement.
 2. Sign in, enable **Save future scans to my account** and complete a scan. Reload and confirm it appears. Sign in as a second user and confirm the first user's history is absent.
-3. Sign in as an approved vendor, publish a tagged test listing, then search the catalogue by the garment, brand or tags. Unpublish it and search again. Confirm ordinary users cannot publish and a second vendor cannot modify the listing.
+3. Sign in, create a vendor profile and publish a tagged test garment. Use a second account to find it, enter measurements and send a fit request. Verify the vendor can accept it and a separate account cannot read it. Unpublish the garment and confirm it disappears from public search.
 
 Fit estimates should be compared against tape and ruler measurements on physical devices before pilot rollout. Scan photos stay in browser memory and the history API stores only the item, estimates and creation time.
 

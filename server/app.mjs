@@ -139,7 +139,7 @@ function productCards(db,rows){
   });
 }
 
-const productFields='id,brand,name,description,tags,sizes,size_chart,price_kobo,purchase_url,photo_path,published';
+const productFields='id,brand,name,description,tags,sizes,size_chart,price_kobo,purchase_url,photo_path,published,category';
 
 const garmentSearch={
   'shirt-long':'"long sleeve" OR "dress shirt" OR "button down"',
@@ -165,17 +165,72 @@ async function wardrobe(request,db){
   const terms=query.match(/[\p{L}\p{N}]{2,}/gu)?.slice(0,12)||[];
   const items=styleSuggestions(query,input.gender);
   if(!category&&!terms.length)return json({error:'Enter a garment, brand or occasion.'},422);
-  const {data,error}=await db.from('vendor_products').select(productFields).eq('published',true)
-    .textSearch('search_terms',category||terms.join(' OR '),{type:'websearch',config:'english'})
-    .order('created_at',{ascending:false}).limit(24);
+  let catalogue=db.from('vendor_products').select(productFields).eq('published',true);
+  catalogue=category?catalogue.eq('category',input.category):
+    catalogue.textSearch('search_terms',terms.join(' OR '),{type:'websearch',config:'english'});
+  const {data,error}=await catalogue.order('created_at',{ascending:false}).limit(24);
   if(error)throw error;
   return json({items,products:productCards(db,data)});
+}
+
+const fitFields={
+  'shirt-short':['chest','shoulder','neck','garment_length'],
+  'shirt-long':['chest','shoulder','arm','neck','garment_length'],
+  suit:['chest','waist','hips','shoulder','arm','inseam','garment_length'],
+  trouser:['waist','hips','inseam'], shorts:['waist','hips','inseam'],
+  dress:['chest','waist','hips','shoulder','garment_length'],
+  skirt:['waist','hips','garment_length'],
+  activewear:['chest','waist','hips','garment_length']
+};
+for(const category of ['jacket','sweater','coat','traditional']){
+  fitFields[category]=['chest','shoulder','arm','garment_length'];
+}
+
+async function fitRequests(request,db,user){
+  if(request.method==='GET'){
+    const {data,error}=await db.from('fit_requests').select('id,customer_id,vendor_id,customer_email,product_id,measurements,status,created_at,vendor_products(name,brand)')
+      .order('created_at',{ascending:false}).limit(100);
+    if(error)throw error;
+    return json({requests:data.map(row=>({...row,incoming:row.vendor_id===user.id}))});
+  }
+  const input=await readJson(request,4096);
+  if(request.method==='PATCH'){
+    if(!uuid.test(input?.id||'')||!['accepted','declined'].includes(input?.status))return json({error:'Choose accept or decline.'},400);
+    const {data,error}=await db.from('fit_requests').update({status:input.status}).eq('id',input.id).eq('vendor_id',user.id)
+      .eq('status','requested').select('id').maybeSingle();
+    if(error)throw error;
+    return data?json({ok:true}):json({error:'Request is unavailable or already decided.'},409);
+  }
+  if(request.method!=='POST')return json({error:'Method not allowed.'},405);
+  if(input?.consent!==true||!uuid.test(input?.productId||''))return json({error:'Select a garment and consent to share measurements.'},400);
+  const {data:product,error:lookupError}=await db.from('vendor_products').select('id,vendor_id,category').eq('id',input.productId).eq('published',true).maybeSingle();
+  if(lookupError)throw lookupError;
+  if(!product||!Object.hasOwn(fitFields,product.category))return json({error:'This listing does not offer made-to-measure requests.'},404);
+  if(product.vendor_id===user.id)return json({error:'Use a shopper account to request this garment.'},400);
+  const dimensions=Object.fromEntries(fitFields[product.category].map(field=>[field,input.measurements?.[field]]));
+  if(Object.values(dimensions).some(value=>!Number.isFinite(value)||value<1||value>300))return json({error:'Enter all required dimensions in centimetres.'},400);
+  const {error}=await db.from('fit_requests').insert({
+    vendor_id:product.vendor_id,product_id:product.id,customer_email:user.email,measurements:dimensions
+  });
+  if(error?.code==='23505')return json({error:'You already requested this garment. See Your fit requests.'},409);
+  if(error)throw error;
+  return json({ok:true},201);
+}
+
+async function registerVendor(request,db){
+  if(request.method!=='POST')return json({error:'Method not allowed.'},405);
+  const input=await readJson(request,2048);
+  const brand=typeof input?.brand==='string'?input.brand.trim():'';
+  if(!brand||brand.length>100)return json({error:'Enter a brand name of up to 100 characters.'},400);
+  const {error}=await db.from('vendor_accounts').insert({brand});
+  if(error&&error.code!=='23505')throw error;
+  return json({ok:true},201);
 }
 
 async function vendorProducts(request,db,user){
   const {data:vendor,error:vendorError}=await db.from('vendor_accounts').select('brand').eq('user_id',user.id).maybeSingle();
   if(vendorError)throw vendorError;
-  if(!vendor)return json({error:'This account has not been approved as a vendor.'},403);
+  if(!vendor)return json({brand:null,products:[]});
   if(request.method==='GET'){
     const {data,error}=await db.from('vendor_products').select(productFields).eq('vendor_id',user.id).order('created_at',{ascending:false}).limit(100);
     if(error)throw error;
@@ -183,8 +238,11 @@ async function vendorProducts(request,db,user){
   }
   if(request.method==='PATCH'){
     const input=await readJson(request,2048);
-    if(!uuid.test(input?.id||'')||typeof input?.published!=='boolean')return json({error:'Invalid listing update.'},400);
-    const {data,error}=await db.from('vendor_products').update({published:input.published}).eq('id',input.id)
+    const changes={};
+    if(typeof input?.published==='boolean')changes.published=input.published;
+    if(Object.hasOwn(fitFields,input?.category))changes.category=input.category;
+    if(!uuid.test(input?.id||'')||!Object.keys(changes).length)return json({error:'Invalid listing update.'},400);
+    const {data,error}=await db.from('vendor_products').update(changes).eq('id',input.id)
       .eq('vendor_id',user.id).select('id').maybeSingle();
     if(error)throw error;
     return data?json({ok:true}):json({error:'Listing not found.'},404);
@@ -198,12 +256,13 @@ async function vendorProducts(request,db,user){
   if(!form)return json({error:'Invalid listing form.'},400);
   const read=name=>typeof form.get(name)==='string'?form.get(name).trim():'';
   const name=read('name'),description=read('description'),tags=read('tags'),sizes=read('sizes'),size_chart=read('size_chart');
+  const category=read('category');
   const price=read('price'),price_kobo=Math.round(Number(price)*100);
   const purchase_url=httpsUrl(read('purchase_url'));
   const image=form.get('photo');
   const types={'image/jpeg':'jpg','image/png':'png','image/webp':'webp'};
   const ext=types[image?.type];
-  if(!name||name.length>100||!description||description.length>500||tags.length>180||!sizes||sizes.length>120||size_chart.length>500||
+  if(!Object.hasOwn(fitFields,category)||!name||name.length>100||!description||description.length>500||tags.length>180||!sizes||sizes.length>120||size_chart.length>500||
     !/^\d{1,8}(\.\d{1,2})?$/.test(price)||price_kobo<1||price_kobo>1e9||!purchase_url||purchase_url.length>500||
     !(image instanceof File)||!ext||image.size<12||image.size>2_097_152){
     return json({error:'Check the required listing fields, HTTPS purchase link and JPEG, PNG or WebP photo.'},400);
@@ -217,7 +276,7 @@ async function vendorProducts(request,db,user){
   const storage=db.storage.from(bucket);
   const {error:uploadError}=await storage.upload(photo_path,image,{contentType:image.type});
   if(uploadError)throw uploadError;
-  const {error}=await db.from('vendor_products').insert({brand:vendor.brand,name,description,tags,sizes,size_chart,price_kobo,purchase_url,photo_path});
+  const {error}=await db.from('vendor_products').insert({brand:vendor.brand,name,description,tags,sizes,size_chart,price_kobo,purchase_url,photo_path,category});
   if(error){
     await storage.remove([photo_path]);
     throw error;
@@ -287,6 +346,10 @@ export async function handle(request){
       response=json({error:'Sign in to continue.'},401);
     }else if(route==='/api/scans'){
       response=await scans(request,auth.db);
+    }else if(route==='/api/vendor-registration'){
+      response=await registerVendor(request,auth.db);
+    }else if(route==='/api/fit-requests'){
+      response=await fitRequests(request,auth.db,auth.user);
     }else if(route==='/api/vendor'){
       response=await vendorProducts(request,auth.db,auth.user);
     }else if(/^\/api\/try-on(?:\/[a-z0-9]{12,64})?$/.test(route)){

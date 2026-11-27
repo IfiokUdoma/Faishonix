@@ -65,3 +65,11 @@
 .garment-option span { display:block; padding:.65rem; }
 .category-note { margin:-.4rem 0 .8rem; color:var(--gray); font-size:.86rem; }
 .foot-photo-guide { position:absolute; inset:12% 18%; border:2px dashed #f5d6b1; border-radius:14px; pointer-events:none; opacity:.8; }
+
+#custom-fit { margin-bottom: 1rem; }
+#custom-fit h3, .fit-request-card h3 { margin-bottom:.45rem; }
+#custom-fit-fields { display:grid; grid-template-columns:repeat(auto-fit,minmax(130px,1fr)); gap:.7rem; grid-column:1/-1; }
+#custom-fit .fit-consent { display:flex; align-items:flex-start; gap:.5rem; grid-column:1/-1; }
+#custom-fit .fit-consent input { width:auto; }
+.fit-request-card { margin-top:.7rem; }
+.fit-request-card button { margin:.5rem .4rem 0 0; }

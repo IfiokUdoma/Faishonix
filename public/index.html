@@ -391,6 +391,16 @@ footer{background:var(--dark);color:rgba(255,255,255,0.6);padding:48px;display:g
     </div>
   </div>
 
+  <section id="custom-fit" class="scan-panel" hidden>
+    <h3 id="custom-fit-title"></h3>
+    <p>Scan below to prefill estimates, then check them with a tape. Enter any missing measurements in centimetres.</p>
+    <form id="custom-fit-form" class="vendor-form">
+      <div id="custom-fit-fields"></div>
+      <label class="fit-consent"><input type="checkbox" name="consent" required> Share these measurements and my account email with the vendor for this request.</label>
+      <button class="btn-dark" type="submit">Send fit request</button>
+    </form>
+    <p id="custom-fit-status" role="status"></p>
+  </section>
   <div class="scanner-layout">
     <div>
       <!-- DETAILS -->
@@ -674,7 +684,7 @@ footer{background:var(--dark);color:rgba(255,255,255,0.6);padding:48px;display:g
         <option value="ha-NG">🇳🇬 Hausa</option>
         <option value="sw-KE">🇰🇪 Swahili</option>
       </select>
-      <input class="wardrobe-input" id="wardrobe-query" type="text" aria-label="Occasion or garment" maxlength="180" placeholder="e.g. Lagos wedding, casual Friday, beach holiday, job interview..." onkeydown="if(event.key==='Enter')searchWardrobe()">
+      <input class="wardrobe-input" id="wardrobe-query" type="text" aria-label="Occasion or garment" maxlength="180" placeholder="e.g. Lagos wedding, green polo, or a style for lace fabric" onkeydown="if(event.key==='Enter')searchWardrobe()">
       <button class="voice-btn" id="voice-btn" onclick="toggleVoice()" title="Voice input">🎤</button>
       <button class="btn-dark" onclick="searchWardrobe()" style="padding:0 22px;white-space:nowrap">Find Looks →</button>
     </div>
@@ -701,9 +711,14 @@ footer{background:var(--dark);color:rgba(255,255,255,0.6);padding:48px;display:g
 <section class="section" id="vendor">
   <h2 class="section-title">Vendor dashboard</h2>
   <p class="section-sub">Publish clothing to wardrobe search. Shoppers order through your purchase link.</p>
-  <p><a href="#scan-history" id="vendor-signin">Sign in or create your account</a> to upload products after vendor approval.</p>
-  <p id="vendor-status" role="status">Sign in with an approved vendor account.</p>
+  <p><a href="#scan-history" id="vendor-signin">Sign in or create your account</a> to create a vendor profile and publish products.</p>
+  <p id="vendor-status" role="status">Sign in to open your vendor dashboard.</p>
+  <form id="vendor-registration" class="account-form" hidden>
+    <label>Fashion house or brand name <input name="brand" maxlength="100" required></label>
+    <button class="btn-dark" type="submit">Create vendor profile</button>
+  </form>
   <form id="vendor-form" class="vendor-form" hidden>
+    <label>Garment type <select name="category" required></select></label>
     <label>Product name <input name="name" maxlength="100" required></label>
     <label>Price (₦) <input name="price" type="number" min="0.01" max="10000000" step="0.01" required></label>
     <label>Description <textarea name="description" maxlength="500" required></textarea></label>
@@ -717,6 +732,11 @@ footer{background:var(--dark);color:rgba(255,255,255,0.6);padding:48px;display:g
   <div class="catalogue-grid" id="vendor-list"></div>
 </section>
 
+<section class="section" id="fit-requests">
+  <h2 class="section-title">Your fit requests</h2>
+  <p id="fit-status" role="status">Sign in to send or manage fit requests.</p>
+  <div id="fit-request-list"></div>
+</section>
 <footer>
   <div>
     <div class="footer-logo brand-lockup"><img src="/brand/faishonix-mark.svg" alt="" width="32" height="32">Faish<span>onix</span></div>
@@ -929,6 +949,11 @@ function doCapture(dataUrl,view,detectedLandmarks){
     checkTryOnReady();
   }
   checkScanReady();
+  if(view==='front'&&!captures.side){
+    showToast('Front captured. Open the side camera for your profile.');
+  }else if(view!=='tryon'&&captures.front&&captures.side){
+    runBodyScan();
+  }
 }
 
 function checkScanReady(){
@@ -1072,6 +1097,8 @@ async function runBodyScan(lookupOnly=false){
     scanBtn.disabled=true;
     scanBtn.textContent='✓ Size generated · Retake scan to recalculate';
   }
+
+  prefillCustomFit(selectedItem,result,fromPose);
 
   // Save only when account history is enabled.
   saveScan({item:selectedItem,measurements:result});

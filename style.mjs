@@ -10,6 +10,11 @@ const looks = [
   ['Beach', /beach|holiday|vacation|resort|plage|playa/u, 'Linen shirt and tailored shorts', 'Cotton sundress and flat sandals', 'Add a sun hat and a lightweight layer.']
 ];
 const garments=[
+  ['polo','Polo styling','Try straight-leg jeans and clean trainers for a relaxed look, or pleated trousers and loafers. Pick one neutral accessory.'],
+  ['suit','Suit styling','Pair with a crisp shirt, leather shoes and a restrained watch. Match the belt or wallet to the shoe leather.'],
+  ['lace','Lace fabric design','Try a lined midi dress or fitted blouse and skirt. Use the scalloped edge at the hem if the fabric has one.'],
+  ['fabric','Fabric design ideas','Try a tailored two-piece or straight-cut dress for structured fabric. For softer fabric, try a wrap dress or flowing skirt.'],
+  ['material','Material design ideas','For structured fabric, consider a panelled dress or tailored two-piece. For drapey fabric, consider a wrap dress or wide-leg trousers.'],
   ['shirt','Shirt','Pair a structured shirt with straight-leg trousers. Roll the sleeves for a relaxed occasion.'],
   ['blazer','Blazer','Pair with tonal tailored trousers for work or straight-leg denim for a casual look.'],
   ['dress','Dress','Try a short structured jacket and simple shoes that suit the occasion.'],
@@ -22,7 +27,7 @@ const garments=[
 export function styleSuggestions(query,gender){
   if(typeof query!=='string'||query.length>180)return [];
   const words=query.normalize('NFKC').toLowerCase().match(/[\p{L}\p{M}-]+/gu)||[];
-  const matches=looks.filter(([,pattern])=>words.some(word=>new RegExp(`^(?:${pattern.source})$`,'u').test(word)) || ['black tie'].some(phrase=>query.toLowerCase().includes(phrase)&&pattern.test(phrase)));
+  const matches=looks.filter(([,pattern])=>words.some(word=>new RegExp(`^(?:${pattern.source})$`,'u').test(word)) || ['black tie','aso oke'].some(phrase=>query.toLowerCase().includes(phrase)&&pattern.test(phrase)));
   const items=matches.map(([match,,male,female,desc])=>({name:gender==='female'?female:male,desc,match,emoji:'✦'}));
   for(const [word,name,desc] of garments){
     if(words.includes(word))items.push({name,desc,match:'Garment pairing',emoji:'✦'});

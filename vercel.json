@@ -39,6 +39,14 @@
     {
       "source": "/api/try-on/:id",
       "destination": "/api/router?route=try-on/:id"
+    },
+    {
+      "source": "/api/vendor-registration",
+      "destination": "/api/router?route=vendor-registration"
+    },
+    {
+      "source": "/api/fit-requests",
+      "destination": "/api/router?route=fit-requests"
     }
   ],
   "headers": [
