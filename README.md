@@ -1,290 +1,55 @@
 # Faishonix
 
-**A fashion technology for fit, measurement, virtual try-on, and personalized wardrobe experiences.**
+Faishonix is a browser-based sizing and outfit tool. The frontend runs on Cloudflare Workers Static Assets. The same Worker serves outfit matching, scan history and virtual try-on. D1 stores opted-in measurements and limits try-on requests.
 
-Faishonix is a fashion technology platform designed to connect human body measurements, clothing fit intelligence, virtual visualization, and personalized fashion discovery.
+## Run locally
 
-The platform explores how computer vision, ML, and AI can make online fashion more personalized.
+Use Node.js 22 or newer.
 
----
+```sh
+npm ci
+npm run dev
+```
 
-## The Problem
+Open http://127.0.0.1:8787. The command sets up a local D1 database. The first build downloads and verifies the pinned MediaPipe pose model from Google Storage. The Worker serves the model and WASM from the same origin as the app. Camera capture requires localhost or HTTPS. Browser dictation depends on the browser and speech service. English search has the widest coverage. French and Spanish include selected terms.
 
-Online fashion has a fundamental problem:
+## Check the pilot
 
-**Customers cannot physically try the product before purchasing it.**
+- **Body.** Enter height, weight and body type. Capture each pose in the full-screen camera. Use Close or Escape to release the camera. Fit results come from pose landmarks, front and side silhouettes when usable, and explicitly labelled fallbacks. Measurement source labels do not represent a validated accuracy percentage.
+- **Shoes.** Enter a ruler-measured length or take a top-down photo with a real A4 sheet beside the foot. Mark the endpoints of its 29.7 cm edge, then heel and longest toe. Review the estimate before saving. Use the retailer's chart for final sizing. Repeat for the other foot if needed.
+- **Wardrobe.** Try `Lagos wedding`, `office blazer`, `Ankara` and `hdhdududsu`. Suggestions come from a curated library of looks and garment pairings. No catalog, paid text model or automatic outfit image generation is required.
+- **History.** Opt in, complete a scan and reload. The result should appear under Your previous scans. Test isolation from a separate browser profile and use Clear saved scans to remove your entries. History belongs to a browser cookie. Clearing that cookie removes access to this history. Photos, height, weight and search text are excluded from D1 history. Scan photos stay in browser memory unless the user confirms sending them for try-on.
+- **Try-on.** Requires an approved model and server-side token. Choose a garment category and confirm before the two photos are sent.
 
-This creates uncertainty around:
+## Deploy to Cloudflare
 
-* Size
-* Fit
-* Body proportions
-* Shoe sizing
-* Garment appearance
-* Style suitability
+1. Confirm the existing D1 database name and ID in `wrangler.toml` and authenticate CLI access to the owning account.
+2. Set a long, randomly generated `BETA_PASSWORD` through the Worker secret settings or `npx wrangler secret put BETA_PASSWORD`. Pilot users sign in over HTTPS using username `pilot` and that password. The Worker checks it before serving either HTML or API responses. The old query-string code has no role in access. For a hosted pilot, choose a dedicated subdomain and put a Cloudflare Access policy in front of it if individual access control is needed.
+3. Run `npx wrangler d1 migrations apply DB --remote` and `npm run deploy`. The new tables avoid modifying the previous `scans` table. Only migrate old personal data if its ownership and consent can be established. Disable the previous Worker routes once the replacement has been verified.
+4. Run the camera and history checks on the actual HTTPS deployment. Verify a new row using `npx wrangler d1 execute DB --remote --command "SELECT item, timestamp FROM pilot_scans ORDER BY timestamp DESC LIMIT 5"`.
+5. Before collecting pilot measurements, validate the estimates on consenting participants against tape and ruler measurements, and publish the pilot privacy notice and retention terms. Test mobile browsers on physical devices.
 
-The result can be:
+### Virtual try-on configuration
 
-* Poor purchasing decisions
-* Returns
-* Customer dissatisfaction
-* Lost revenue for fashion businesses
+Revoke the previously exposed Replicate token. If try-on is approved, create a new token and add it using `npx wrangler secret put REPLICATE_API_TOKEN`. Keep the token out of frontend files, GitHub and chat.
 
-Faishonix is designed to reduce this uncertainty through body and fashion intelligence.
+The bundled IDM-VTON version is labelled non-commercial by its publisher. It remains disabled unless `ENABLE_NONCOMMERCIAL_TRY_ON=true` is explicitly set for a non-commercial evaluation. For a commercial pilot, configure a licensed Replicate model version via `TRY_ON_MODEL_VERSION`. It must accept the IDM-VTON request fields used in `worker.mjs` and return an image, or the Worker adapter must be updated and tested against that provider. `TRY_ON_DAILY_LIMIT` caps starts across the pilot and defaults to 20 UTC-day starts. A failed provider submission still consumes one start. Confirm provider image handling and spending controls before enabling try-on.
 
----
+## Store integration
 
-## What Faishonix Does
+Load the sizing guide module from the HTTPS Faishonix deployment and mount it on a product page. The shopper opens Faishonix in a separate tab, so the store page does not receive camera data or measurements.
 
-The platform combines several technologies into one fashion experience:
+```html
+<div id="size-guide"></div>
+<script type="module">
+  import {mountSizeGuide} from 'https://YOUR-FAISHONIX-DOMAIN/store-sdk.js';
+  mountSizeGuide(document.querySelector('#size-guide'), {
+    origin: 'https://YOUR-FAISHONIX-DOMAIN',
+    mode: 'body'
+  });
+</script>
+```
 
-**Body Measurement**
+Use `shoes` for a footwear product page. For a cross-origin module import, serve the SDK with an appropriate CORS header. The Worker serves this standalone module publicly so that the storefront can load it before the shopper signs in to Faishonix.
 
-↓
-
-**Fit Intelligence**
-
-↓
-
-**Fashion Recommendation**
-
-↓
-
-**Virtual Try-On**
-
-↓
-
-**Personalized Wardrobe**
-
----
-
-## Core Capabilities
-
-### AI Body Measurement
-
-Faishonix explores computer-vision-based estimation of body dimensions from images and guided capture.
-
-The system is designed around:
-
-* Camera-based measurement
-* Height calibration
-* Body dimensions
-* Body proportions
-* Measurement estimation
-
-The current implementation primarily explores RGB camera input, with more advanced sensing technologies considered for future development.
-
----
-
-## Fit Intelligence
-
-Body measurements can be used to create a more useful representation of how garments may fit an individual.
-
-The system can potentially evaluate:
-
-* Garment dimensions
-* Body dimensions
-* Size compatibility
-* Fit relationships
-* Clothing proportions
-
-The goal is to move beyond simple size labels.
-
-Instead of asking:
-
-> "What size do I normally wear?"
-
-the system can work toward:
-
-> "Which size and garment configuration best fits my body?"
-
----
-
-## Virtual Try-On
-
-Faishonix explores AI-powered virtual clothing visualization.
-
-Users can potentially visualize clothing on a representation of themselves before purchasing.
-
-The technology direction includes:
-
-* Generative AI
-* Image processing
-* Virtual garment visualization
-* Photorealistic rendering
-* Clothing transformation
-
----
-
-## Wardrobe Intelligence
-
-Faishonix also explores AI-assisted wardrobe discovery.
-
-Users can describe what they want using natural language, including:
-
-* Weather
-* Occasion
-* Mood
-* Style
-* Activity
-* Color preference
-
-The system can then help identify suitable clothing combinations.
-
----
-
-## Foot Measurement
-
-The platform also explores camera-based foot measurement.
-
-A guided capture process can use a known reference object, such as an A4 sheet of paper, to help establish scale.
-
-Potential applications include:
-
-* Foot-length estimation
-* Shoe-size recommendations
-* Footwear fit intelligence
-
----
-
-## Computer Vision
-
-The computer-vision layer explores technologies such as:
-
-* OpenCV
-* MediaPipe
-* Image processing
-* Pose estimation
-* Body landmark detection
-* Geometric measurement
-
-These technologies form part of the measurement and body-understanding pipeline.
-
----
-
-## AI Architecture
-
-A conceptual Faishonix workflow is:
-
-**User Capture**
-
-↓
-
-**Image / Video Processing**
-
-↓
-
-**Body & Landmark Detection**
-
-↓
-
-**Measurement Estimation**
-
-↓
-
-**Fit Analysis**
-
-↓
-
-**Fashion Intelligence**
-
-↓
-
-**Recommendation / Virtual Try-On**
-
----
-
-## Technology
-
-Faishonix is being developed using technologies including:
-
-* JavaScript
-* TypeScript
-* React
-* Next.js
-* Node.js
-* Python
-* Computer vision
-* OpenCV
-* MediaPipe
-* AI APIs
-* Generative AI
-* Cloud infrastructure
-
----
-
-## Product Applications
-
-Faishonix has potential applications across:
-
-### Fashion E-commerce
-
-Reduce uncertainty around size and fit.
-
-### Fashion Brands
-
-Provide customers with better digital fitting experiences.
-
-### Online Retail
-
-Improve personalization and product discovery.
-
-### Footwear
-
-Support digital foot measurement and sizing.
-
-### Personal Styling
-
-Generate recommendations based on individual characteristics.
-
----
-
-## Product Direction
-
-Future development may include:
-
-* Higher-precision body measurement
-* LiDAR-assisted measurement
-* Improved pose estimation
-* Better garment geometry
-* Advanced virtual try-on
-* Personalized size recommendations
-* Digital avatars
-* Wardrobe management
-* Fashion recommendation models
-* Retailer integrations
-* Fashion APIs
-
----
-
-## Product Philosophy
-
-Faishonix is built around a simple idea:
-
-> **Fashion technology should understand the person, not just the product.**
-
-The long-term objective is to make digital fashion experiences more personalized, measurable, and intelligent.
-
----
-
-## Project Status
-
-**Active Development**
-
-Faishonix is being developed as a fashion technology platform combining computer vision, artificial intelligence, measurement, and personalized fashion experiences.
-
----
-
-## Author
-
-**Ifiok Essienubong Udoma**
-
-Product Developer • Software Developer • Chemical Engineer • Venture Builder
-
-GitHub: https://github.com/IfiokUdoma
-
----
-
-## License
-
-MIT License
+The Shopify block in `integrations/shopify/blocks` can be copied into the `blocks/` directory of a Shopify CLI-generated theme app extension. Deploy the extension through the linked Shopify app and add the block to a product template. Enter your Faishonix URL with the optional `#shoe-scan` fragment. This integration launches sizing and does not require access to the merchant's catalog. A store installation and catalog integration require a Shopify app and development store.

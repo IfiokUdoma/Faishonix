@@ -4,8 +4,10 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
 <title>Faishonix — AI Fashion Scanning</title>
-<script src="https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/vision_bundle.js"></script>
-<script async src="https://docs.opencv.org/4.9.0/opencv.js" onload="onOpenCvReady()"></script>
+<!-- MediaPipe: loaded synchronously so globals are available before our script runs -->
+
+<!-- OpenCV: async. We do NOT use onload= here — we poll inside JS instead -->
+
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400&family=Inter:wght@300;400;500;600&display=swap');
 
@@ -123,7 +125,7 @@ select:focus,input:focus{border-color:var(--warm);}
 .status-text{font-size:12px;color:var(--gray);font-weight:500;}
 
 /* CAMERA AREA */
-.cam-area{background:var(--dark);border-radius:var(--radius);overflow:hidden;position:relative;aspect-ratio:3/4;max-height:340px;display:flex;align-items:center;justify-content:center;cursor:pointer;border:2px dashed var(--border);}
+.cam-area{background:var(--dark);border-radius:var(--radius);overflow:hidden;position:relative;aspect-ratio:3/4;min-height:380px;max-height:min(70vh,560px);display:flex;align-items:center;justify-content:center;cursor:pointer;border:2px dashed var(--border);}
 .cam-area.active-cam{border-style:solid;border-color:var(--warm);}
 .cam-area.captured{border-color:var(--success);}
 .cam-area video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;}
@@ -249,20 +251,38 @@ footer{background:var(--dark);color:rgba(255,255,255,0.6);padding:48px;display:g
 .footer-heading{font-size:11px;font-weight:600;color:rgba(255,255,255,0.4);letter-spacing:.1em;text-transform:uppercase;margin-bottom:14px;}
 
 @media(max-width:900px){
-  nav{padding:14px 20px;}.nav-links{display:none;}
-  .hero-content{padding:60px 20px;}.hero-stats{gap:20px;}
-  .section{padding:56px 20px;}
+  nav{padding:14px 18px;}.nav-links{display:none;}
+  .hero-content{padding:48px 18px;}.hero-stats{gap:16px;}
+  .hero h1{font-size:32px;letter-spacing:-.5px;}
+  .hero-actions{flex-direction:column;gap:10px;}
+  .hero-actions a,.btn-primary,.btn-outline{width:100%;justify-content:center;text-align:center;}
+  .section{padding:48px 18px;}
   .how-grid{grid-template-columns:1fr 1fr;}
   .item-scroll{grid-template-columns:repeat(3,1fr);}
   .scanner-layout{grid-template-columns:1fr;}
   .measurements-grid{grid-template-columns:1fr 1fr;}
   .wardrobe-results{grid-template-columns:1fr 1fr;}
+  .wardrobe-box{padding:18px 14px;}
+  .wardrobe-input-row{flex-wrap:wrap;gap:8px;}
+  .wardrobe-input{width:100%;}
+  .mood-tags{gap:5px;}
+  .mood-tag{font-size:11px;padding:4px 10px;}
   .outfit-grid{grid-template-columns:1fr 1fr;}
   .tryon-layout{grid-template-columns:1fr;}
-  footer{grid-template-columns:1fr;padding:32px 20px;}
-  .features-strip{padding:16px 20px;}
+  .scan-panel{padding:18px 14px;}
+  .result-header{flex-direction:column;gap:10px;}
+  .result-accuracy{text-align:left;}
+  footer{grid-template-columns:1fr;padding:28px 18px;}
+  .features-strip{padding:12px 0;overflow:hidden;}
+  body{overflow-x:hidden;max-width:100vw;}
+  .section,.scan-panel,.wardrobe-box,.results-panel,.placeholder-panel{max-width:100%;box-sizing:border-box;}
+  img{max-width:100%;}
+  .cta-bar{flex-direction:column;}
+  .cta-bar button,.cta-bar a{width:100%;justify-content:center;}
+  .cam-area{min-height:320px;max-height:min(65vh,500px);}
 }
 </style>
+<link rel="stylesheet" href="/capture.css">
 </head>
 <body>
 
@@ -290,13 +310,13 @@ footer{background:var(--dark);color:rgba(255,255,255,0.6);padding:48px;display:g
   <div class="hero-content">
     <div class="hero-eyebrow">✦ AI Fashion Scanning Technology</div>
     <h1>Wear it before<br>you <em>buy it.</em></h1>
-    <p class="hero-sub">Faishonix scans your body in seconds, finds your exact size for any garment, and shows you how it looks on you — before you click order.</p>
+    <p class="hero-sub">Faishonix scans your body in seconds, suggests a size from a general fit chart, and lets you preview a garment when virtual try-on is enabled.</p>
     <div class="hero-actions">
       <a href="#scanner" class="btn-primary">Scan My Size →</a>
       <a href="#wardrobe" class="btn-outline">Search Wardrobe</a>
     </div>
     <div class="hero-stats">
-      <div><div class="stat-val">90<span>%</span></div><div class="stat-label">Measurement accuracy</div></div>
+
       <div><div class="stat-val">10<span>s</span></div><div class="stat-label">Full body scan time</div></div>
       <div><div class="stat-val">0</div><div class="stat-label">App download needed</div></div>
     </div>
@@ -309,14 +329,14 @@ footer{background:var(--dark);color:rgba(255,255,255,0.6);padding:48px;display:g
   <div class="features-inner" id="marquee-inner">
     <div class="feature-pill"><span class="feature-pill-icon">⚡</span><span class="feature-pill-text">Real-time pose detection</span></div>
     <div class="feature-pill"><span class="feature-pill-icon">📐</span><span class="feature-pill-text">Physics-calibrated measurements</span></div>
-    <div class="feature-pill"><span class="feature-pill-icon">👟</span><span class="feature-pill-text">Shoe size from virtual A4 guide</span></div>
+    <div class="feature-pill"><span class="feature-pill-icon">👟</span><span class="feature-pill-text">Shoe sizing with a measured reference</span></div>
     <div class="feature-pill"><span class="feature-pill-icon">🪞</span><span class="feature-pill-text">Photorealistic try-on</span></div>
     <div class="feature-pill"><span class="feature-pill-icon">✨</span><span class="feature-pill-text">AI outfit suggestions</span></div>
     <div class="feature-pill"><span class="feature-pill-icon">🌍</span><span class="feature-pill-text">African body type optimised</span></div>
     <div class="feature-pill"><span class="feature-pill-icon">♾️</span><span class="feature-pill-text">Works on any device camera</span></div>
     <div class="feature-pill"><span class="feature-pill-icon">⚡</span><span class="feature-pill-text">Real-time pose detection</span></div>
     <div class="feature-pill"><span class="feature-pill-icon">📐</span><span class="feature-pill-text">Physics-calibrated measurements</span></div>
-    <div class="feature-pill"><span class="feature-pill-icon">👟</span><span class="feature-pill-text">Shoe size from virtual A4 guide</span></div>
+    <div class="feature-pill"><span class="feature-pill-icon">👟</span><span class="feature-pill-text">Shoe sizing with a measured reference</span></div>
     <div class="feature-pill"><span class="feature-pill-icon">🪞</span><span class="feature-pill-text">Photorealistic try-on</span></div>
     <div class="feature-pill"><span class="feature-pill-icon">✨</span><span class="feature-pill-text">AI outfit suggestions</span></div>
     <div class="feature-pill"><span class="feature-pill-icon">🌍</span><span class="feature-pill-text">African body type optimised</span></div>
@@ -333,7 +353,7 @@ footer{background:var(--dark);color:rgba(255,255,255,0.6);padding:48px;display:g
     <div class="how-card"><div class="how-num">01</div><div class="how-icon">👗</div><div class="how-title">Pick what you're buying</div><div class="how-text">Select the garment type — shirt, trouser, dress, shoes. Each one needs different measurements.</div></div>
     <div class="how-card"><div class="how-num">02</div><div class="how-icon">📏</div><div class="how-title">Enter height & weight</div><div class="how-text">Your scale reference. The physics engine uses this to calibrate every measurement to your actual body.</div></div>
     <div class="how-card"><div class="how-num">03</div><div class="how-icon">📷</div><div class="how-title">Auto-scan with camera</div><div class="how-text">Stand 2.5m from camera. Faishonix detects your body and captures automatically when you're perfectly in frame.</div></div>
-    <div class="how-card"><div class="how-num">04</div><div class="how-icon">✓</div><div class="how-title">Get your exact size</div><div class="how-text">Physics-calibrated measurements. Only what that item needs. AI-generated outfit suggestions included.</div></div>
+    <div class="how-card"><div class="how-num">04</div><div class="how-icon">✓</div><div class="how-title">Get a size estimate</div><div class="how-text">Physics-calibrated measurements. Only what that item needs. AI-generated outfit suggestions included.</div></div>
   </div>
 </div>
 
@@ -342,7 +362,7 @@ footer{background:var(--dark);color:rgba(255,255,255,0.6);padding:48px;display:g
 <!-- BODY SCANNER -->
 <div class="section" id="scanner">
   <div class="section-tag">Body Scanner</div>
-  <h2 class="section-title">Find your exact size</h2>
+  <h2 class="section-title">Find your suggested size</h2>
   <p class="section-sub">Stand 2.5m from camera. Auto-captures when your full body is in frame.</p>
 
   <!-- ITEM SELECTOR -->
@@ -350,51 +370,51 @@ footer{background:var(--dark);color:rgba(255,255,255,0.6);padding:48px;display:g
     <div style="font-size:13px;font-weight:600;color:var(--gray);margin-bottom:14px;letter-spacing:.04em;text-transform:uppercase;">What are you buying?</div>
     <div class="item-scroll" id="item-grid">
       <div class="item-card active" data-item="shirt-long" onclick="selectItem('shirt-long')">
-        <img class="item-card-img" src="https://images.unsplash.com/photo-1602810318383-e386cc2a3ccf?w=200&q=70" alt="Shirt" loading="lazy">
+        <img class="item-card-img" src="https://images.unsplash.com/photo-1596755094514-f87e34085b2c?w=200&q=70" alt="Shirt" loading="lazy" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'"><div class="item-card-img-placeholder" style="display:none">👔</div>
         <div class="item-card-label">Long Sleeve Shirt</div><div class="item-check">✓</div>
       </div>
       <div class="item-card" data-item="shirt-short" onclick="selectItem('shirt-short')">
-        <img class="item-card-img" src="https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?w=200&q=70" alt="T-Shirt" loading="lazy">
+        <img class="item-card-img" src="https://images.unsplash.com/photo-1503341455253-b2e723bb3dbb?w=200&q=70" alt="T-Shirt" loading="lazy" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'"><div class="item-card-img-placeholder" style="display:none">👕</div>
         <div class="item-card-label">T-Shirt</div><div class="item-check">✓</div>
       </div>
       <div class="item-card" data-item="trouser" onclick="selectItem('trouser')">
-        <img class="item-card-img" src="https://images.unsplash.com/photo-1542272604-787c3835535d?w=200&q=70" alt="Trouser" loading="lazy">
+        <img class="item-card-img" src="https://images.unsplash.com/photo-1542272604-787c3835535d?w=200&q=70" alt="Trouser" loading="lazy" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'"><div class="item-card-img-placeholder" style="display:none">👖</div>
         <div class="item-card-label">Trouser / Jeans</div><div class="item-check">✓</div>
       </div>
       <div class="item-card" data-item="dress" onclick="selectItem('dress')">
-        <img class="item-card-img" src="https://images.unsplash.com/photo-1539008835657-9e8e9680c956?w=200&q=70" alt="Dress" loading="lazy">
+        <img class="item-card-img" src="https://images.unsplash.com/photo-1595777457583-95e059d581b8?w=200&q=70" alt="Dress" loading="lazy" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'"><div class="item-card-img-placeholder" style="display:none">👗</div>
         <div class="item-card-label">Dress</div><div class="item-check">✓</div>
       </div>
       <div class="item-card" data-item="jacket" onclick="selectItem('jacket')">
-        <img class="item-card-img" src="https://images.unsplash.com/photo-1551028719-00167b16eac5?w=200&q=70" alt="Jacket" loading="lazy">
+        <img class="item-card-img" src="https://images.unsplash.com/photo-1591047139829-d91aecb6caea?w=200&q=70" alt="Jacket" loading="lazy" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'"><div class="item-card-img-placeholder" style="display:none">🧥</div>
         <div class="item-card-label">Jacket / Blazer</div><div class="item-check">✓</div>
       </div>
       <div class="item-card" data-item="suit" onclick="selectItem('suit')">
-        <img class="item-card-img" src="https://images.unsplash.com/photo-1507679799987-c73779587ccf?w=200&q=70" alt="Suit" loading="lazy">
+        <img class="item-card-img" src="https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=200&q=70" alt="Suit" loading="lazy" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'"><div class="item-card-img-placeholder" style="display:none">🤵</div>
         <div class="item-card-label">Full Suit</div><div class="item-check">✓</div>
       </div>
       <div class="item-card" data-item="shorts" onclick="selectItem('shorts')">
-        <img class="item-card-img" src="https://images.unsplash.com/photo-1591195853828-11db59a44f43?w=200&q=70" alt="Shorts" loading="lazy">
+        <img class="item-card-img" src="https://images.unsplash.com/photo-1506629082955-511b1aa562c8?w=200&q=70" alt="Shorts" loading="lazy" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'"><div class="item-card-img-placeholder" style="display:none">🩳</div>
         <div class="item-card-label">Shorts</div><div class="item-check">✓</div>
       </div>
       <div class="item-card" data-item="skirt" onclick="selectItem('skirt')">
-        <img class="item-card-img" src="https://images.unsplash.com/photo-1583496661160-fb5218afa080?w=200&q=70" alt="Skirt" loading="lazy">
+        <img class="item-card-img" src="https://images.unsplash.com/photo-1529374255404-311a2a4f1fd9?w=200&q=70" alt="Skirt" loading="lazy" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'"><div class="item-card-img-placeholder" style="display:none">👗</div>
         <div class="item-card-label">Skirt</div><div class="item-check">✓</div>
       </div>
       <div class="item-card" data-item="sweater" onclick="selectItem('sweater')">
-        <img class="item-card-img" src="https://images.unsplash.com/photo-1434389677669-e08b4cac3105?w=200&q=70" alt="Sweater" loading="lazy">
+        <img class="item-card-img" src="https://images.unsplash.com/photo-1434389677669-e08b4cac3105?w=200&q=70" alt="Sweater" loading="lazy" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'"><div class="item-card-img-placeholder" style="display:none">🧶</div>
         <div class="item-card-label">Sweater / Hoodie</div><div class="item-check">✓</div>
       </div>
       <div class="item-card" data-item="coat" onclick="selectItem('coat')">
-        <img class="item-card-img" src="https://images.unsplash.com/photo-1548624313-0396a0bc3b6e?w=200&q=70" alt="Coat" loading="lazy">
+        <img class="item-card-img" src="https://images.unsplash.com/photo-1548624313-0396a0bc3b6e?w=200&q=70" alt="Coat" loading="lazy" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'"><div class="item-card-img-placeholder" style="display:none">🧥</div>
         <div class="item-card-label">Coat / Overcoat</div><div class="item-check">✓</div>
       </div>
       <div class="item-card" data-item="activewear" onclick="selectItem('activewear')">
-        <img class="item-card-img" src="https://images.unsplash.com/photo-1518459031867-a89b944bffe4?w=200&q=70" alt="Activewear" loading="lazy">
+        <img class="item-card-img" src="https://images.unsplash.com/photo-1538805060514-97d9cc17730c?w=200&q=70" alt="Activewear" loading="lazy" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'"><div class="item-card-img-placeholder" style="display:none">🏃</div>
         <div class="item-card-label">Activewear</div><div class="item-check">✓</div>
       </div>
       <div class="item-card" data-item="traditional" onclick="selectItem('traditional')">
-        <img class="item-card-img" src="https://images.unsplash.com/photo-1606744837616-56c9a5c6a6eb?w=200&q=70" alt="Traditional" loading="lazy">
+        <img class="item-card-img" src="https://images.unsplash.com/photo-1580086319619-3ed498161c77?w=200&q=70" alt="Traditional" loading="lazy" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'"><div class="item-card-img-placeholder" style="display:none">🥻</div>
         <div class="item-card-label">Traditional Wear</div><div class="item-check">✓</div>
       </div>
     </div>
@@ -454,7 +474,7 @@ footer{background:var(--dark);color:rgba(255,255,255,0.6);padding:48px;display:g
         <div style="font-size:12px;font-weight:600;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center">
           Front view <span id="front-status" style="color:var(--gray);font-weight:400">Not captured</span>
         </div>
-        <div class="cam-area" id="front-area" onclick="startScan('front')">
+        <div role="button" tabindex="0" class="cam-area" id="front-area" onclick="startScan('front')">
           <div class="body-sil"><svg viewBox="0 0 100 220" fill="none" stroke="rgba(200,149,108,0.5)" stroke-width="2"><circle cx="50" cy="22" r="16"/><line x1="50" y1="38" x2="50" y2="130"/><line x1="50" y1="55" x2="15" y2="100"/><line x1="50" y1="55" x2="85" y2="100"/><line x1="50" y1="130" x2="25" y2="210"/><line x1="50" y1="130" x2="75" y2="210"/></svg></div>
           <div class="footprint-anchor"><div class="footprint-box"></div><div class="footprint-label">Place feet here</div></div>
           <div class="cam-placeholder"><div class="cam-icon">📷</div><div class="cam-hint"><strong>Tap to open camera</strong>Stand 2.5m away, full body visible</div></div>
@@ -464,7 +484,7 @@ footer{background:var(--dark);color:rgba(255,255,255,0.6);padding:48px;display:g
         <div style="font-size:12px;font-weight:600;margin:14px 0 8px;display:flex;justify-content:space-between;align-items:center">
           Side view <span id="side-status" style="color:var(--gray);font-weight:400">Not captured</span>
         </div>
-        <div class="cam-area" id="side-area" onclick="startScan('side')">
+        <div role="button" tabindex="0" class="cam-area" id="side-area" onclick="startScan('side')">
           <div class="body-sil"><svg viewBox="0 0 100 220" fill="none" stroke="rgba(200,149,108,0.5)" stroke-width="2"><circle cx="55" cy="22" r="16"/><line x1="50" y1="38" x2="50" y2="130"/><line x1="50" y1="60" x2="35" y2="100"/><line x1="50" y1="130" x2="40" y2="210"/><line x1="50" y1="130" x2="62" y2="210"/></svg></div>
           <div class="cam-placeholder"><div class="cam-icon">📷</div><div class="cam-hint"><strong>Tap to open camera</strong>Turn 90°, full side profile visible</div></div>
         </div>
@@ -483,8 +503,8 @@ footer{background:var(--dark);color:rgba(255,255,255,0.6);padding:48px;display:g
             <div class="result-size" id="result-size">L <span>/ 42</span></div>
           </div>
           <div class="result-accuracy">
-            <div class="result-acc-val" id="result-acc">91%</div>
-            <div class="result-acc-label">accuracy</div>
+            <div class="result-acc-val" id="result-acc">Estimate</div>
+            <div class="result-acc-label">General sizing</div>
           </div>
         </div>
         <div class="measurements-grid" id="meas-grid"></div>
@@ -501,7 +521,7 @@ footer{background:var(--dark);color:rgba(255,255,255,0.6);padding:48px;display:g
       <div class="placeholder-panel" id="results-placeholder">
         <div class="placeholder-icon">📐</div>
         <div class="placeholder-title">Your size appears here</div>
-        <div class="placeholder-text">Complete your details and capture both body views to get your exact measurements</div>
+        <div class="placeholder-text">Complete your details and capture both body views to get estimated measurements</div>
       </div>
     </div>
   </div>
@@ -512,8 +532,8 @@ footer{background:var(--dark);color:rgba(255,255,255,0.6);padding:48px;display:g
 <!-- SHOE SCANNER -->
 <div class="section" id="shoe-scan">
   <div class="section-tag">Shoe Scanner</div>
-  <h2 class="section-title">Find your exact shoe size</h2>
-  <p class="section-sub">A virtual A4 guide appears on screen. Place your foot against it — no paper needed.</p>
+  <h2 class="section-title">Find your suggested shoe size</h2>
+  <p class="section-sub">Use a measured foot length or take a top-down photo with a real A4 sheet.</p>
 
   <div class="scanner-layout">
     <div>
@@ -530,23 +550,23 @@ footer{background:var(--dark);color:rgba(255,255,255,0.6);padding:48px;display:g
       <div class="scan-panel" style="margin-top:16px">
         <div class="scan-panel-title"><div class="step-num">2</div> Foot scan</div>
         <div style="background:var(--cream);border-radius:var(--radius-sm);padding:11px 13px;margin-bottom:14px;font-size:12px;color:var(--gray);line-height:1.6;border:1px solid var(--border)">
-          The virtual A4 guide (21cm × 29.7cm) appears on your screen. Stand foot flat inside the outline. Use back camera for best results.
+          Place a real A4 sheet flat beside your foot. Keep the entire sheet and your foot in the photo.
         </div>
 
         <div style="font-size:12px;font-weight:600;margin-bottom:8px;display:flex;justify-content:space-between">
           <span id="shoe-left-label">Foot scan</span>
           <span id="shoe-left-status" style="color:var(--gray);font-weight:400">Not captured</span>
         </div>
-        <div class="cam-area" id="shoe-left-area" onclick="startFootScan('left')" style="aspect-ratio:1;max-height:240px">
-          <div class="cam-placeholder"><div class="cam-icon">👟</div><div class="cam-hint"><strong>Tap to open camera</strong>Virtual A4 guide appears on screen</div></div>
+        <div role="button" tabindex="0" class="cam-area" id="shoe-left-area" onclick="startFootScan('left')" style="aspect-ratio:1;min-height:300px;max-height:min(50vh,420px)">
+          <div class="cam-placeholder"><div class="cam-icon">👟</div><div class="cam-hint"><strong>Tap to open camera</strong>Use real A4 or enter a measured length</div></div>
         </div>
 
         <div id="shoe-right-section" style="display:none;margin-top:14px">
           <div style="font-size:12px;font-weight:600;margin-bottom:8px;display:flex;justify-content:space-between">
             Right foot <span id="shoe-right-status" style="color:var(--gray);font-weight:400">Not captured</span>
           </div>
-          <div class="cam-area" id="shoe-right-area" onclick="startFootScan('right')" style="aspect-ratio:1;max-height:240px">
-            <div class="cam-placeholder"><div class="cam-icon">👟</div><div class="cam-hint"><strong>Tap to open camera</strong>Right foot on virtual guide</div></div>
+          <div role="button" tabindex="0" class="cam-area" id="shoe-right-area" onclick="startFootScan('right')" style="aspect-ratio:1;min-height:300px;max-height:min(50vh,420px)">
+            <div class="cam-placeholder"><div class="cam-icon">👟</div><div class="cam-hint"><strong>Tap to open camera</strong>Use real A4 or enter a measured length</div></div>
           </div>
         </div>
 
@@ -569,7 +589,7 @@ footer{background:var(--dark);color:rgba(255,255,255,0.6);padding:48px;display:g
       <div class="placeholder-panel" id="shoe-placeholder">
         <div class="placeholder-icon">👟</div>
         <div class="placeholder-title">Shoe size appears here</div>
-        <div class="placeholder-text">Scan your foot against the virtual A4 guide to get your size</div>
+        <div class="placeholder-text">Add your foot length to look up your size</div>
       </div>
     </div>
   </div>
@@ -588,21 +608,23 @@ footer{background:var(--dark);color:rgba(255,255,255,0.6);padding:48px;display:g
       <div class="scan-panel">
         <div class="scan-panel-title"><div class="step-num">1</div> Your photo</div>
         <p style="font-size:12px;color:var(--gray);margin-bottom:12px">Your front scan is reused automatically. Tap to recapture.</p>
-        <div class="cam-area" id="tryon-person-area" onclick="startScan('tryon')" style="max-height:260px">
+        <div role="button" tabindex="0" class="cam-area" id="tryon-person-area" onclick="startScan('tryon')" style="min-height:320px;max-height:min(60vh,480px)">
           <div class="cam-placeholder"><div class="cam-icon">🧍</div><div class="cam-hint"><strong>Uses front scan · Tap to recapture</strong></div></div>
         </div>
       </div>
       <div class="scan-panel" style="margin-top:14px">
         <div class="scan-panel-title"><div class="step-num">2</div> Garment photo <span class="req-tag">REQUIRED</span></div>
         <p style="font-size:12px;color:var(--gray);margin-bottom:12px">Upload the product image from the store listing you want to buy.</p>
-        <div class="garment-drop" id="garment-drop" onclick="document.getElementById('garment-input').click()">
-          <input type="file" id="garment-input" accept="image/*" style="display:none" onchange="handleGarment(event)">
+        <label class="garment-drop" id="garment-drop" for="garment-input">
           <div style="font-size:32px">🛍️</div>
           <div style="font-size:13px;color:var(--gray);text-align:center">Tap to upload garment photo<br><span style="font-size:11px">From the product page</span></div>
-        </div>
+        </label>
+        <input type="file" id="garment-input" accept="image/jpeg,image/png,image/webp" onchange="handleGarment(event)" aria-label="Upload garment photo">
       </div>
+      <label class="form-label" for="tryon-category">Garment category</label>
+      <select id="tryon-category"><option value="upper_body">Tops and jackets</option><option value="lower_body">Trousers and skirts</option><option value="dresses">Dresses</option></select>
       <button class="btn-primary" id="tryon-btn" onclick="runTryOn()" disabled style="width:100%;justify-content:center;margin-top:14px">✨ Generate Try-On</button>
-      <div style="font-size:11px;color:var(--gray);margin-top:8px;text-align:center">IDM-VTON via Replicate · ~$0.03 per generation</div>
+      <div style="font-size:11px;color:var(--gray);margin-top:8px;text-align:center">Virtual try-on requires a configured image provider.</div>
     </div>
 
     <div>
@@ -611,6 +633,15 @@ footer{background:var(--dark);color:rgba(255,255,255,0.6);padding:48px;display:g
         <img id="tryon-result-img" class="tryon-result-img" style="display:none" alt="Try-on result">
         <div style="margin-top:14px;padding:12px;background:var(--cream);border-radius:var(--radius-sm);border-left:3px solid var(--warm)">
           <div style="font-size:13px;color:var(--gray);line-height:1.6" id="tryon-note">—</div>
+        </div>
+        <!-- Occasion input after try-on -->
+        <div id="occasion-box" style="display:none;margin-top:14px">
+          <div style="font-size:13px;font-weight:600;color:var(--dark);margin-bottom:8px">What's the occasion? Get pairing suggestions</div>
+          <div style="display:flex;gap:8px">
+            <input type="text" id="occasion-input" maxlength="180" aria-label="Occasion for pairing" class="wardrobe-input" placeholder="e.g. Lagos wedding, date night, job interview..." style="flex:1;padding:11px 13px;font-size:13px;">
+            <button class="btn-dark" onclick="getTryOnPairings()" style="padding:0 16px;white-space:nowrap;font-size:13px;">Suggest →</button>
+          </div>
+          <div id="occasion-results" style="margin-top:12px"></div>
         </div>
         <div class="cta-bar" style="margin-top:14px">
           <button class="btn-primary" style="flex:1;justify-content:center">Add to cart with my size →</button>
@@ -635,24 +666,43 @@ footer{background:var(--dark);color:rgba(255,255,255,0.6);padding:48px;display:g
 
   <div class="wardrobe-box">
     <div style="font-size:14px;font-weight:600;color:var(--dark);margin-bottom:14px">What's the occasion?</div>
+    <div style="font-size:12px;color:var(--gray);margin-bottom:8px;font-weight:500">Choose your gender-based outfit style ↓</div>
     <div class="wardrobe-input-row">
-      <input class="wardrobe-input" id="wardrobe-query" type="text" placeholder="e.g. Lagos wedding, casual Friday, beach holiday, job interview..." onkeydown="if(event.key==='Enter')searchWardrobe()">
+      <select id="wardrobe-gender" aria-label="Style preference" style="flex-shrink:0;width:auto;padding:11px 14px;font-size:14px;background:var(--cream);border:1.5px solid var(--border);border-radius:var(--radius-sm);color:var(--dark);appearance:none;cursor:pointer;">
+        <option value="male">Male</option>
+        <option value="female">Female</option>
+        <option value="unisex">Unisex</option>
+      </select>
+      <select id="voice-lang" style="flex-shrink:0;width:auto;padding:11px 10px;font-size:13px;background:var(--cream);border:1.5px solid var(--border);border-radius:var(--radius-sm);color:var(--dark);appearance:none;cursor:pointer;" aria-label="Voice input language">
+        <option value="en-US">🇺🇸 English</option>
+        <option value="en-GB">🇬🇧 English (UK)</option>
+        <option value="fr-FR">🇫🇷 Français</option>
+        <option value="es-ES">🇪🇸 Español</option>
+        <option value="pt-BR">🇧🇷 Português</option>
+        <option value="zh-CN">🇨🇳 中文</option>
+        <option value="ar-SA">🇸🇦 العربية</option>
+        <option value="yo-NG">🇳🇬 Yorùbá</option>
+        <option value="ig-NG">🇳🇬 Igbo</option>
+        <option value="ha-NG">🇳🇬 Hausa</option>
+        <option value="sw-KE">🇰🇪 Swahili</option>
+      </select>
+      <input class="wardrobe-input" id="wardrobe-query" type="text" aria-label="Occasion or garment" maxlength="180" placeholder="e.g. Lagos wedding, casual Friday, beach holiday, job interview..." onkeydown="if(event.key==='Enter')searchWardrobe()">
       <button class="voice-btn" id="voice-btn" onclick="toggleVoice()" title="Voice input">🎤</button>
       <button class="btn-dark" onclick="searchWardrobe()" style="padding:0 22px;white-space:nowrap">Find Looks →</button>
     </div>
     <div class="mood-tags">
-      <span class="mood-tag" onclick="setMood(this,'Casual & relaxed')">😌 Casual</span>
-      <span class="mood-tag" onclick="setMood(this,'Smart & professional')">💼 Professional</span>
-      <span class="mood-tag" onclick="setMood(this,'Bold & fashion-forward')">🔥 Bold</span>
-      <span class="mood-tag" onclick="setMood(this,'Elegant & formal')">✨ Formal</span>
-      <span class="mood-tag" onclick="setMood(this,'Traditional & cultural')">🥻 Traditional</span>
-      <span class="mood-tag" onclick="setMood(this,'Sporty & active')">🏃 Sporty</span>
-      <span class="mood-tag" onclick="setMood(this,'Romantic & soft')">🌸 Romantic</span>
-      <span class="mood-tag" onclick="setMood(this,'Street style & edgy')">🖤 Street</span>
+      <button type="button" class="mood-tag" onclick="setMood(this,'Casual & relaxed')">😌 Casual</button>
+      <button type="button" class="mood-tag" onclick="setMood(this,'Smart & professional')">💼 Professional</button>
+      <button type="button" class="mood-tag" onclick="setMood(this,'Bold & fashion-forward')">🔥 Bold</button>
+      <button type="button" class="mood-tag" onclick="setMood(this,'Elegant & formal')">✨ Formal</button>
+      <button type="button" class="mood-tag" onclick="setMood(this,'Traditional & cultural')">🥻 Traditional</button>
+      <button type="button" class="mood-tag" onclick="setMood(this,'Sporty & active')">🏃 Sporty</button>
+      <button type="button" class="mood-tag" onclick="setMood(this,'Romantic & soft')">🌸 Romantic</button>
+      <button type="button" class="mood-tag" onclick="setMood(this,'Street style & edgy')">🖤 Street</button>
     </div>
     <div class="wardrobe-results" id="wardrobe-results" style="display:none"></div>
     <div id="wardrobe-placeholder" style="text-align:center;padding:32px 0;color:var(--gray);font-size:14px">
-      Describe your style above — AI finds what works for your body and mood ✦
+      Search by occasion, garment or style, or pick a mood above.
     </div>
   </div>
 </div>
@@ -681,30 +731,14 @@ footer{background:var(--dark);color:rgba(255,255,255,0.6);padding:48px;display:g
 </footer>
 
 <div class="loading-overlay" id="loading"><div class="loading-spinner"></div><div class="loading-text" id="load-text">Scanning...</div><div class="loading-sub" id="load-sub">Please wait</div></div>
-<div class="toast" id="toast"></div>
+<div class="toast" id="toast" role="status"></div>
 
 <script>
 // ═══════════════════════════════════════
 // CONFIG
 // ═══════════════════════════════════════
-const REPLICATE_TOKEN = "........";
-const IDM_VTON_VER    = "c871bb9b046607b680449ecbae55fd8c5d20b7e5a8c64f5c41eba0c2c0fae07";
-const CLAUDE_API_KEY  = "YOUR_CLAUDE_API_KEY_HERE"; // Add your Claude API key
-const D1_DATABASE_ID  = "..........";
-const STAND_DIST_CM   = 250; // 2.5 metres fixed stand distance
 
-// ═══════════════════════════════════════
-// APP STATE MACHINE (KYC-style)
-// ═══════════════════════════════════════
-const AppState = { INITIALIZING:'init', READY:'ready', TRACKING:'tracking', CAPTURED:'captured' };
-let appState = AppState.INITIALIZING;
-let mediaPipeReady = false, cvReady = false;
-let poseLandmarker = null;
-let activeStream = null, poseLoopActive = false;
-let smoothedLandmarks = null;
-const EMA = 0.35; // exponential moving average factor
-const CONF_THRESHOLD = 0.45; // lowered for real-world lighting
-const STABLE_FRAMES_NEEDED = 45; // ~1.5s at 30fps
+let activeStream = null;
 
 // ═══════════════════════════════════════
 // ITEM CONFIG
@@ -725,7 +759,6 @@ const ITEMS = {
 };
 const FL = {chest:'Chest/Bust',waist:'Waist',hips:'Hips',shoulder:'Shoulder',arm:'Arm Length',inseam:'Inseam',neck:'Neck'};
 
-// SIZE CHARTS (from document)
 const SIZE_CHARTS = {
   MALE:[
     {size:'XS',chestMin:78, chestMax:85, waistMin:64,waistMax:73,shoulderMin:37,shoulderMax:40},
@@ -758,56 +791,46 @@ const SHOE_DATA=[
   [29.0,32.0,'male',48,12,48,13,'extra wide'],
 ];
 
-// ═══════════════════════════════════════
-// INIT — wait for both libs before enabling camera
-// ═══════════════════════════════════════
-function onOpenCvReady(){
-  cvReady=true;
-  checkReady();
-}
-
-async function initMediaPipe(){
-  try{
-    const{PoseLandmarker,FilesetResolver}=window;
-    const vision=await FilesetResolver.forVisionTasks('https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/wasm');
-    poseLandmarker=await PoseLandmarker.createFromOptions(vision,{
-      baseOptions:{modelAssetPath:'https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_lite/float16/1/pose_landmarker_lite.task',delegate:'GPU'},
-      runningMode:'VIDEO',numPoses:1
+// ═══════════════════════════════════════════════════════════════
+// CENTRALIZED VISION INIT MANAGER
+// Fixes: race condition where initMediaPipe() and initVideoModePose()
+// were called immediately but vision_bundle.js globals were not yet
+// available on window. Also fixes onOpenCvReady() being called before
+// the function was defined.
+// ═══════════════════════════════════════════════════════════════
+let videoModeDetector;
+const vision = initVisionSystem();
+async function initVisionSystem() {
+  await new Promise(resolve => document.addEventListener('DOMContentLoaded', resolve, {once:true}));
+  try {
+    const base = '/vision';
+    const {FilesetResolver, PoseLandmarker} = await import(base + '/vision_bundle.mjs');
+    const files = await FilesetResolver.forVisionTasks(base + '/wasm');
+    const modelAssetPath = '/vision/pose.task';
+    videoModeDetector = await PoseLandmarker.createFromOptions(files, {
+      baseOptions:{modelAssetPath, delegate:'CPU'}, runningMode:'VIDEO', numPoses:1, outputSegmentationMasks:true
     });
-    mediaPipeReady=true;
-    checkReady();
-  }catch(e){
-    console.warn('MediaPipe GPU failed, trying CPU...',e);
-    try{
-      const{PoseLandmarker,FilesetResolver}=window;
-      const vision=await FilesetResolver.forVisionTasks('https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/wasm');
-      poseLandmarker=await PoseLandmarker.createFromOptions(vision,{
-        baseOptions:{modelAssetPath:'https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_lite/float16/1/pose_landmarker_lite.task',delegate:'CPU'},
-        runningMode:'VIDEO',numPoses:1
-      });
-      mediaPipeReady=true;
-      checkReady();
-    }catch(e2){
-      setStatus('error','Scanner unavailable. Try refreshing the page.');
-    }
-  }
-}
-
-function checkReady(){
-  if(mediaPipeReady&&cvReady){
-    appState=AppState.READY;
-    setStatus('ready','Faishonix scanner ready. Tap a camera to begin.');
+    setStatus('ready','Scanner ready. Open the camera to begin.');
+    console.info('Vision system ready');
+    return true;
+  } catch (error) {
+    console.error('Body vision startup failed', error);
+    setStatus('error','Body scanner could not load. Check your connection and refresh.');
+    setStatus('error','Body scanner unavailable. Foot sizing and wardrobe still work.');
+    return false;
   }
 }
 
 function setStatus(type,msg){
   const dot=document.getElementById('sys-dot');
   const txt=document.getElementById('sys-text');
-  dot.className='status-dot '+type;
-  txt.textContent=msg;
+  if(dot)dot.className='status-dot '+type;
+  if(txt)txt.textContent=msg;
 }
 
-initMediaPipe();
+
+// Start init after DOM is fully loaded
+
 
 // hero carousel
 let heroIdx=0;
@@ -826,6 +849,7 @@ function selectItem(item){
   document.querySelectorAll('.item-card').forEach(c=>c.classList.toggle('active',c.dataset.item===item));
   document.getElementById('results-panel').classList.remove('show');
   document.getElementById('results-placeholder').style.display='block';
+  checkScanReady();
 }
 
 let heightUnit='cm';
@@ -850,149 +874,14 @@ let captures={front:null,side:null,tryon:null};
 let landmarks={front:null,side:null};
 let footCaptures={left:null,right:null};
 let footStream=null;
-let stableFrames=0;
-let autoLocked={front:false,side:false,tryon:false};
-let currentScanMode=null;
+let shoeAsym=false;
+let garmentUrl=null;
 let camFacing={front:'user',side:'user',tryon:'user',shoe:'environment'};
 
-async function startScan(view){
-  if(appState===AppState.INITIALIZING){
-    showToast('Scanner is still loading. Please wait a moment.');return;
-  }
-  currentScanMode=view;
-  stopCamera();
-  poseLoopActive=false;
-  stableFrames=0;
-  autoLocked[view]=false;
-  smoothedLandmarks=null;
-
-  const areaId=view==='front'?'front-area':view==='side'?'side-area':'tryon-person-area';
-  const area=document.getElementById(areaId);
-  area.innerHTML='';
-  area.classList.add('active-cam');
-
-  const vid=document.createElement('video');
-  vid.autoplay=true;vid.playsInline=true;vid.muted=true;
-  vid.style.cssText='position:absolute;inset:0;width:100%;height:100%;object-fit:cover;';
-
-  const oc=document.createElement('canvas');
-  oc.style.cssText='position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:4;';
-
-  const statusBar=document.createElement('div');
-  statusBar.className='cam-status-bar';
-  statusBar.innerHTML=`<div class="cam-pill"><div class="status-dot scanning" id="scan-dot-${view}"></div><span id="scan-lbl-${view}">Looking for your body...</span></div>`;
-
-  // silhouette
-  const sil=document.createElement('div');
-  sil.className='body-sil';
-  sil.innerHTML=`<svg viewBox="0 0 100 220" fill="none" stroke="rgba(200,149,108,0.35)" stroke-width="2"><circle cx="50" cy="22" r="16"/><line x1="50" y1="38" x2="50" y2="130"/><line x1="50" y1="55" x2="15" y2="100"/><line x1="50" y1="55" x2="85" y2="100"/><line x1="50" y1="130" x2="25" y2="210"/><line x1="50" y1="130" x2="75" y2="210"/></svg>`;
-
-  // footprint anchor
-  const fp=document.createElement('div');
-  fp.className='footprint-anchor';
-  fp.innerHTML='<div class="footprint-box"></div><div class="footprint-label">Place feet here · Stand 2.5m away</div>';
-
-  // camera toggle
-  const tog=document.createElement('button');
-  tog.innerHTML='🔄';
-  tog.style.cssText='position:absolute;top:8px;right:8px;z-index:10;background:rgba(26,18,9,0.75);color:white;border:none;border-radius:6px;padding:6px 10px;font-size:13px;cursor:pointer;';
-  tog.onclick=e=>{e.stopPropagation();camFacing[view]=camFacing[view]==='user'?'environment':'user';startScan(view);};
-
-  area.appendChild(vid);area.appendChild(oc);area.appendChild(statusBar);area.appendChild(sil);area.appendChild(fp);area.appendChild(tog);
-  area.onclick=null;
-
-  try{
-    const stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:camFacing[view],width:{ideal:1280},height:{ideal:720}}});
-    activeStream=stream;vid.srcObject=stream;
-    await new Promise(r=>vid.onloadeddata=r);
-    appState=AppState.TRACKING;
-    runPoseLoop(vid,oc,view);
-  }catch(e){
-    showToast('Camera access denied. Please allow camera permission.');
-    area.innerHTML=`<div class="cam-placeholder"><div class="cam-icon">⚠️</div><div class="cam-hint"><strong>Camera blocked</strong>Allow camera access in browser settings</div></div>`;
-  }
-}
-
-function stopCamera(){
-  poseLoopActive=false;
-  if(activeStream){activeStream.getTracks().forEach(t=>t.stop());activeStream=null;}
-}
+// camera functions defined below at IMAGE MODE section
 
 const POSE_CONNS=[[11,12],[11,13],[13,15],[12,14],[14,16],[11,23],[12,24],[23,24],[23,25],[25,27],[24,26],[26,28]];
 const KEY_LMS=[0,11,12,23,24,25,26,27,28];
-
-function runPoseLoop(video,canvas,view){
-  poseLoopActive=true;
-  stableFrames=0;
-
-  function frame(){
-    if(!poseLoopActive)return;
-    canvas.width=video.videoWidth||video.clientWidth;
-    canvas.height=video.videoHeight||video.clientHeight;
-    const ctx=canvas.getContext('2d');
-    ctx.clearRect(0,0,canvas.width,canvas.height);
-
-    if(!poseLandmarker||video.readyState<2){requestAnimationFrame(frame);return;}
-
-    let res;
-    try{res=poseLandmarker.detectForVideo(video,performance.now());}
-    catch(e){requestAnimationFrame(frame);return;}
-
-    const raw=res.landmarks&&res.landmarks[0];
-    const dot=document.getElementById(`scan-dot-${view}`);
-    const lbl=document.getElementById(`scan-lbl-${view}`);
-
-    if(raw&&isGoodPose(raw)){
-      // EMA smoothing
-      if(!smoothedLandmarks){
-        smoothedLandmarks=raw.map(l=>({...l}));
-      }else{
-        smoothedLandmarks=smoothedLandmarks.map((s,i)=>({
-          x:s.x*(1-EMA)+raw[i].x*EMA,
-          y:s.y*(1-EMA)+raw[i].y*EMA,
-          z:s.z*(1-EMA)+raw[i].z*EMA,
-          visibility:raw[i].visibility
-        }));
-      }
-
-      stableFrames++;
-      const pct=Math.min(100,Math.round(stableFrames/STABLE_FRAMES_NEEDED*100));
-
-      // progress
-      const progId=view==='front'?'front-prog':view==='side'?'side-prog':null;
-      const fillId=view==='front'?'front-fill':view==='side'?'side-fill':null;
-      if(progId){
-        document.getElementById(progId).style.display='block';
-        document.getElementById(fillId).style.width=pct+'%';
-      }
-
-      drawSkeleton(ctx,smoothedLandmarks,canvas.width,canvas.height,'#C8956C');
-      drawScanArc(ctx,canvas.width,canvas.height,pct);
-
-      if(dot)dot.className='status-dot ready';
-      if(lbl)lbl.textContent=pct<100?`Hold still... ${pct}%`:'📸 Auto-capturing...';
-
-      if(pct>=100&&!autoLocked[view]){
-        autoLocked[view]=true;
-        landmarks[view]=smoothedLandmarks;
-        setTimeout(()=>doCapture(video,view),250);
-        return;
-      }
-    }else{
-      stableFrames=Math.max(0,stableFrames-4);
-      smoothedLandmarks=null;
-      if(dot)dot.className='status-dot loading';
-      if(lbl)lbl.textContent='Looking for your full body...';
-      if(raw)drawSkeleton(ctx,raw,canvas.width,canvas.height,'rgba(192,80,80,0.6)');
-    }
-    requestAnimationFrame(frame);
-  }
-  requestAnimationFrame(frame);
-}
-
-function isGoodPose(lms){
-  return KEY_LMS.every(i=>lms[i]&&(lms[i].visibility||0)>CONF_THRESHOLD);
-}
 
 function drawSkeleton(ctx,lms,w,h,color){
   ctx.strokeStyle=color;ctx.lineWidth=2.5;
@@ -1003,42 +892,27 @@ function drawSkeleton(ctx,lms,w,h,color){
   KEY_LMS.forEach(i=>{if(lms[i]){ctx.beginPath();ctx.arc(lms[i].x*w,lms[i].y*h,4,0,Math.PI*2);ctx.fill();}});
 }
 
-function drawScanArc(ctx,w,h,pct){
-  const cx=w/2,cy=h/2,r=Math.min(w,h)*0.44;
-  ctx.strokeStyle=`rgba(200,149,108,${0.1+pct/100*0.4})`;
-  ctx.lineWidth=3;ctx.setLineDash([]);
-  ctx.beginPath();ctx.arc(cx,cy,r,-Math.PI/2,-Math.PI/2+Math.PI*2*(pct/100));ctx.stroke();
-  ctx.strokeStyle='rgba(200,149,108,0.7)';ctx.lineWidth=1;ctx.setLineDash([5,5]);
-  ctx.beginPath();ctx.moveTo(cx,h*0.05);ctx.lineTo(cx,h*0.92);ctx.stroke();
-  ctx.setLineDash([]);
-}
+// doCapture — receives dataUrl, landmarks, and estimated distance from FCIE
 
-function doCapture(video,view){
-  poseLoopActive=false;
-  stopCamera();
-
-  const cv2=document.createElement('canvas');
-  cv2.width=video.videoWidth;cv2.height=video.videoHeight;
-  cv2.getContext('2d').drawImage(video,0,0);
-  const url=cv2.toDataURL('image/jpeg',0.92);
-  captures[view]=url;
+function doCapture(dataUrl,view,detectedLandmarks){
+  captures[view]=dataUrl;
 
   const areaId=view==='front'?'front-area':view==='side'?'side-area':'tryon-person-area';
   const area=document.getElementById(areaId);
   area.classList.remove('active-cam');area.classList.add('captured');
-  area.innerHTML=`<div class="capture-preview"><img src="${url}" alt="capture"><div class="retake-bar" onclick="startScan('${view}')">✓ Auto-captured · Tap to retake</div></div>`;
+
+  area.innerHTML=`<div class="capture-preview"><img src="${dataUrl}" alt="Captured ${view} pose"><button type="button" class="retake-bar" onclick="startScan('${view}')">Retake photo</button></div>`;
   area.onclick=null;
 
   const statusId=view==='front'?'front-status':view==='side'?'side-status':null;
-  if(statusId)document.getElementById(statusId).textContent='✓ Captured';
+  if(statusId)document.getElementById(statusId).textContent=detectedLandmarks?'✓ Captured + body detected':'✓ Captured';
 
   const progId=view==='front'?'front-prog':view==='side'?'side-prog':null;
   if(progId)document.getElementById(progId).style.display='none';
 
-  // reuse front scan for try-on
   if(view==='front'){
     const ta=document.getElementById('tryon-person-area');
-    ta.innerHTML=`<div class="capture-preview"><img src="${url}" alt="capture"><div class="retake-bar" onclick="startScan('tryon')">Using front scan · Tap to retake</div></div>`;
+    ta.innerHTML=`<div class="capture-preview"><img src="${dataUrl}" alt="capture"><button type="button" class="retake-bar" onclick="startScan('tryon')">Replace front photo</button></div>`;
     ta.onclick=null;
     checkTryOnReady();
   }
@@ -1046,7 +920,10 @@ function doCapture(video,view){
 }
 
 function checkScanReady(){
-  document.getElementById('scan-btn').disabled=!(captures.front&&captures.side);
+  const btn=document.getElementById('scan-btn');
+  const ready=captures.front&&captures.side;
+  btn.disabled=!ready;
+  if(ready)btn.textContent='Generate my size';
 }
 function checkTryOnReady(){
   document.getElementById('tryon-btn').disabled=!((captures.front||captures.tryon)&&garmentUrl);
@@ -1055,62 +932,70 @@ function checkTryOnReady(){
 // ═══════════════════════════════════════
 // PHYSICS ENGINE (from document)
 // ═══════════════════════════════════════
+function silhouetteMeasures(mask,points){
+  if(!mask||!points)return null;
+  const {width,height}=mask;
+  const data=mask.getAsFloat32Array();
+  const shoulders=(points[11].y+points[12].y)/2;
+  const hips=(points[23].y+points[24].y)/2;
+  const center=(points[11].x+points[12].x+points[23].x+points[24].x)/4;
+  const bodyHeight=Math.abs((points[27].y+points[28].y)/2-points[0].y);
+  const rowWidth=fraction=>{
+    const y=Math.round((shoulders+(hips-shoulders)*fraction)*height);
+    const x=Math.round(center*width);
+    if(y<0||y>=height||x<1||x>=width-1||data[y*width+x]<0.5)return null;
+    let left=x,right=x;
+    while(left>0&&data[y*width+left-1]>=0.5)left--;
+    while(right<width-1&&data[y*width+right+1]>=0.5)right++;
+    if(left===0||right===width-1)return null;
+    return (right-left+1)/width;
+  };
+  return {chest:rowWidth(.22),waist:rowWidth(.62),hips:rowWidth(.98),bodyHeight};
+}
+
 function calculateRealBodyMeasurements(lms,heightCm,weightKg){
   if(!lms||lms.length<29)return null;
-  const nose=lms[0],la=lms[27],ra=lms[28];
-  const ankleY=(la.y+ra.y)/2;
-  const pixelHeight=Math.abs(ankleY-nose.y);
-  if(pixelHeight<0.05)return null;
-
-  const focalPx=(pixelHeight*STAND_DIST_CM)/heightCm;
-
-  function realBreadth(px){return(px*STAND_DIST_CM)/focalPx;}
-  function pixDist(a,b){return Math.hypot(a.x-b.x,a.y-b.y);}
-
-  const bmi=weightKg/Math.pow(heightCm/100,2);
-  const waistDepth=bmi>25?0.78:0.72;
-  const hipDepth=bmi>28?0.92:0.86;
-  const chestDepth=bmi>25?0.75:0.68;
-
-  function ellipsePerimeter(frontPx,depthRatio){
-    const rw=realBreadth(frontPx);
-    const a=rw/2, b=(rw*depthRatio)/2;
-    const h=Math.pow(a-b,2)/Math.pow(a+b,2);
-    return Math.PI*(a+b)*(1+(3*h)/(10+Math.sqrt(4-3*h)));
+  const front=capturedSilhouettes.front;
+  const side=capturedSilhouettes.side;
+  const bodyHeight=Math.abs((lms[27].y+lms[28].y)/2-lms[0].y);
+  if(bodyHeight<.1)return null;
+  const aspect=capturedAspects.front||1;
+  const scale=heightCm*.88/bodyHeight;
+  const distance=(a,b)=>Math.hypot((lms[a].x-lms[b].x)*aspect,lms[a].y-lms[b].y)*scale;
+  const round=value=>Number(value.toFixed(1));
+  const shoulder=round(distance(11,12));
+  const confidence=(points,indices)=>Math.min(...indices.map(i=>points[i]?.visibility??0));
+  const leftConfidence=confidence(lms,[11,13,15]);
+  const rightConfidence=confidence(lms,[12,14,16]);
+  const leftArm=leftConfidence>=.45?round(distance(11,13)+distance(13,15)):null;
+  const rightArm=rightConfidence>=.45?round(distance(12,14)+distance(14,16)):null;
+  const arm=leftArm&&rightArm?round((leftArm+rightArm)/2):leftArm||rightArm;
+  const leftInseam=confidence(lms,[23,25,27])>=.45?round((distance(23,25)+distance(25,27))*.9):null;
+  const rightInseam=confidence(lms,[24,26,28])>=.45?round((distance(24,26)+distance(26,28))*.9):null;
+  const inseam=leftInseam&&rightInseam?round((leftInseam+rightInseam)/2):leftInseam||rightInseam;
+  const bmi=weightKg/(heightCm/100)**2;
+  const depthRatios={chest:bmi>25?.75:.68,waist:bmi>25?.78:.72,hips:bmi>28?.92:.86};
+  const estimateWidths={chest:shoulder*.92,waist:(shoulder+distance(23,24))*.45,hips:distance(23,24)*1.15};
+  const sources={};
+  function circumference(field){
+    const width=front?.[field]?front[field]*aspect*scale:estimateWidths[field];
+    const depth=side?.[field]&&side.bodyHeight>.15?side[field]*(capturedAspects.side||1)*heightCm*.88/side.bodyHeight:0;
+    const measured=Boolean(front?.[field]&&depth/width>=.35&&depth/width<=1.3&&width>=18&&width<=80);
+    sources[field]=measured?'Front + side silhouette':'Depth model';
+    const a=width/2,b=(measured?depth:width*depthRatios[field])/2;
+    const ratio=((a-b)/(a+b))**2;
+    return round(Math.PI*(a+b)*(1+3*ratio/(10+Math.sqrt(4-3*ratio))));
   }
-
-  const shoulderPx=pixDist(lms[11],lms[12]);
-  const shoulder=parseFloat(realBreadth(shoulderPx).toFixed(1));
-
-  const armPx=pixDist(lms[11],lms[15]);
-  const arm=parseFloat(realBreadth(armPx).toFixed(1));
-
-  const midL={x:(lms[11].x+lms[23].x)/2,y:(lms[11].y+lms[23].y)/2};
-  const midR={x:(lms[12].x+lms[24].x)/2,y:(lms[12].y+lms[24].y)/2};
-  const waistPx=pixDist(midL,midR);
-  const waist=parseFloat(ellipsePerimeter(waistPx,waistDepth).toFixed(1));
-
-  const hipPx=pixDist(lms[23],lms[24])*1.15;
-  const hips=parseFloat(ellipsePerimeter(hipPx,hipDepth).toFixed(1));
-
-  const chestPx=pixDist(lms[11],lms[12])*0.95;
-  const chest=parseFloat(ellipsePerimeter(chestPx,chestDepth).toFixed(1));
-
-  const inseamPx=pixDist(lms[25],lms[27]);
-  const inseam=parseFloat(realBreadth(inseamPx).toFixed(1));
-
-  const neck=parseFloat((shoulder*0.84).toFixed(1));
-
-  // lookup size
+  const measurements={chest:circumference('chest'),waist:circumference('waist'),hips:circumference('hips'),
+    shoulder,arm,leftArm,rightArm,inseam,leftInseam,rightInseam,neck:round(shoulder*.84)};
+  sources.shoulder='Pose landmarks';
+  sources.arm=arm?'Pose landmarks':'Low landmark visibility';
+  sources.inseam=inseam?'Pose estimate':'Low landmark visibility';
+  sources.neck='Proportion model';
   const chart=SIZE_CHARTS[document.getElementById('gender').value==='male'?'MALE':'FEMALE'];
-  let size='M';
-  for(const e of chart){
-    if(waist>=e.waistMin&&waist<=e.waistMax){size=e.size;break;}
-  }
-  if(waist<chart[0].waistMin)size=chart[0].size;
-  if(waist>chart[chart.length-1].waistMax)size=chart[chart.length-1].size;
-
-  return{chest,waist,hips,shoulder,arm,inseam,neck,size,focalPx:Math.round(focalPx)};
+  const relevant=ITEMS[selectedItem].fields.filter(field=>chart[0][field+'Max']);
+  const size=(chart.find(row=>relevant.every(field=>measurements[field]<=row[field+'Max']))||chart.at(-1)).size;
+  return {...measurements,size,sources};
 }
 
 // ═══════════════════════════════════════
@@ -1125,53 +1010,46 @@ async function runBodyScan(){
     showToast('Please fill in height, weight, and body type.');return;
   }
 
-  showLoad('Calculating measurements...','Running physics calibration');
-  await sleep(800);
 
   let result=null;
   if(landmarks.front){
     result=calculateRealBodyMeasurements(landmarks.front,heightCm,weightKg);
   }
 
+  const fromPose=Boolean(result);
   if(!result){
     // fallback to lookup table
     result=fallbackMeasurements(heightCm,weightKg,gender,bodyType);
   }
 
-  updateLoad('Matching to size chart...','Filtering for '+ITEMS[selectedItem].label);
-  await sleep(500);hideLoad();
 
   const config=ITEMS[selectedItem];
-  const accuracy=landmarks.front?Math.floor(Math.random()*4+89):Math.floor(Math.random()*4+84);
-
   document.getElementById('result-for').textContent='Size for: '+config.label;
-  document.getElementById('result-size').innerHTML=result.size+' <span>/ International</span>';
-  document.getElementById('result-acc').textContent=accuracy+'%';
-
-  // render only item-relevant fields
-  const grid=document.getElementById('meas-grid');
-  if(asym){
-    grid.innerHTML=config.fields.map(f=>{
-      const v=result[f]||0;
-      const vary=f==='arm'||f==='inseam'?Math.round(Math.random()*2+1):0;
-      return vary?`
-        <div class="meas-item"><div class="meas-val">${v}<span>cm</span></div><div class="meas-label">${FL[f]} (L)</div></div>
-        <div class="meas-item asym"><div class="meas-val">${v+vary}<span>cm</span></div><div class="meas-label">${FL[f]} (R) ⚠</div></div>`
-        :`<div class="meas-item"><div class="meas-val">${v}<span>cm</span></div><div class="meas-label">${FL[f]}</div></div>`;
-    }).join('');
-  }else{
-    grid.innerHTML=config.fields.map(f=>`<div class="meas-item"><div class="meas-val">${result[f]||0}<span>cm</span></div><div class="meas-label">${FL[f]}</div></div>`).join('');
-  }
+  document.getElementById('result-size').textContent=result.size+' / General size chart';
+  document.getElementById('result-acc').textContent='Estimate';
+  document.getElementById('meas-grid').innerHTML=config.fields.map(field=>{
+    const sides=asym&&fromPose&&field==='arm'
+      ? [['Left sleeve',result.leftArm],['Right sleeve',result.rightArm]]
+      : asym&&fromPose&&field==='inseam'
+        ? [['Left inseam',result.leftInseam],['Right inseam',result.rightInseam]]
+        : [[FL[field],result[field]]];
+    return sides.map(([label,value])=>`<div class="meas-item"><div class="meas-val">${value ?? '—'}<span> cm</span></div><div class="meas-label">${label}</div><small>${result.sources?.[field]||'Lookup estimate'}</small></div>`).join('');
+  }).join('');
 
   const fieldsStr=config.fields.map(f=>FL[f].toLowerCase()).join(', ');
-  document.getElementById('fit-note').textContent=`For a ${config.label.toLowerCase()}, your ${fieldsStr} ${config.fields.length>1?'are':'is'} the key measurements. ${landmarks.front?'Physics-calibrated from your live scan. ':'Based on your height, weight, and body type. '}Size ${result.size} is your best fit.`;
+  document.getElementById('fit-note').textContent=`For a ${config.label.toLowerCase()}, your ${fieldsStr} ${config.fields.length>1?'are':'is'} the key measurements. ${fromPose?'Estimated from pose landmarks and your height. Circumferences use captured silhouettes when usable, with modelled depth as a fallback. ':'Based on your height, weight, and body type. '}Suggested size: ${result.size}. Check the retailer’s chart before ordering.`;
 
   document.getElementById('results-placeholder').style.display='none';
   document.getElementById('results-panel').classList.add('show');
   document.getElementById('results-panel').scrollIntoView({behavior:'smooth',block:'nearest'});
 
+  // Lock generate button — only resets when user retakes scan
+  const scanBtn=document.getElementById('scan-btn');
+  scanBtn.disabled=true;
+  scanBtn.textContent='✓ Size generated · Retake scan to recalculate';
+
   // save to D1
-  saveToD1({heightCm,weightKg,gender,bodyType,item:selectedItem,measurements:result,timestamp:new Date().toISOString()});
+  saveToD1({item:selectedItem,measurements:result});
 }
 
 function fallbackMeasurements(h,w,gender,bodyType){
@@ -1190,150 +1068,448 @@ function fallbackMeasurements(h,w,gender,bodyType){
 // ═══════════════════════════════════════
 // SHOE SCANNER — isolated, validated
 // ═══════════════════════════════════════
-let shoeAsym=false;
-function toggleShoeAsym(){
-  shoeAsym=document.getElementById('shoe-asym').checked;
-  document.getElementById('shoe-right-section').style.display=shoeAsym?'block':'none';
-  document.getElementById('shoe-left-label').textContent=shoeAsym?'Left foot':'Foot scan';
+// ═══════════════════════════════════════
+// CAMERA: IMAGE MODE — countdown + voice + distance check
+// ═══════════════════════════════════════
+
+// ═══════════════════════════════════════════════════════════════
+// FAISHONIX CAPTURE INTELLIGENCE ENGINE (FCIE)
+// VIDEO mode for live guidance → IMAGE mode for final capture
+// 9 inspectors → readiness score → best-frame selection → measurement
+// ═══════════════════════════════════════════════════════════════
+
+function speakInstruction(text){
+  if(!window.speechSynthesis)return;
+  window.speechSynthesis.cancel();
+  const u=new SpeechSynthesisUtterance(text);
+  u.rate=0.88;u.pitch=1;u.volume=1;
+  window.speechSynthesis.speak(u);
 }
 
-async function startFootScan(side){
-  const areaId=side==='left'?'shoe-left-area':'shoe-right-area';
-  const area=document.getElementById(areaId);
-  if(footStream){footStream.getTracks().forEach(t=>t.stop());footStream=null;}
+// ── STATE ──────────────────────────────────────────────────────
+let countdownTimer=null;
+let fcieLoopActive=false;
+let bestFrames={}; // stores best captured frames per view
 
+
+// ── INSPECTOR FUNCTIONS ────────────────────────────────────────
+
+// Inspector 1 & 2: Person + full body visibility
+function inspectPerson(lms,view){
+  if(!lms||lms.length<29)return{ok:false,msg:'No person detected'};
+  const required=view==='side'?[0,...(lms[11].visibility>lms[12].visibility?[11,23,25,27]:[12,24,26,28])]:[0,11,12,23,24,25,26,27,28];
+  const missing=[];
+  const labels={0:'head',11:'left shoulder',12:'right shoulder',23:'left hip',24:'right hip',25:'left knee',26:'right knee',27:'left ankle',28:'right ankle'};
+  for(const i of required){
+    if(!lms[i]||(lms[i].visibility||0)<0.4)missing.push(labels[i]);
+  }
+  if(missing.length>0)return{ok:false,msg:`Move back — missing: ${missing.slice(0,2).join(', ')}`};
+  return{ok:true,score:100};
+}
+
+// Inspector 3: Pose validation (front vs side)
+function inspectPose(lms,view){
+  const ls=lms[11],rs=lms[12],lh=lms[23],rh=lms[24];
+  if(!ls||!rs||!lh||!rh)return{ok:false,msg:'Adjust position'};
+  const shoulderWidth=Math.abs(rs.x-ls.x);
+  const hipWidth=Math.abs(rh.x-lh.x);
+  const shoulderTilt=Math.abs(ls.y-rs.y);
+  if(view!=='side'){
+    const bodyHeight=Math.abs((lms[27].y+lms[28].y)/2-lms[0].y);
+    if(shoulderWidth<bodyHeight*0.11)return{ok:false,msg:'Face camera directly — turn to face forward'};
+    if(shoulderTilt>0.08)return{ok:false,msg:'Stand straight — level your shoulders'};
+    return{ok:true,score:95};
+  }
+  if(view==='side'){
+    if(shoulderWidth>Math.abs((lms[27].y+lms[28].y)/2-lms[0].y)*0.17)return{ok:false,msg:'Turn 90° — show your side profile'};
+    return{ok:true,score:95};
+  }
+  return{ok:true,score:90};
+}
+
+// Inspector 5 (Lighting): check frame brightness and contrast
+function inspectLighting(ctx,w,h){
+  const d=ctx.getImageData(0,0,w,h).data;
+  let sum=0,min=255,max=0;
+  for(let i=0;i<d.length;i+=16){
+    const lum=0.299*d[i]+0.587*d[i+1]+0.114*d[i+2];
+    sum+=lum;if(lum<min)min=lum;if(lum>max)max=lum;
+  }
+  const avg=sum/(d.length/16);
+  const contrast=max-min;
+  if(avg<35)return{ok:false,msg:'Too dark — move to better lighting'};
+  if(avg>235)return{ok:false,msg:'Too bright — avoid direct sunlight'};
+  if(contrast<40)return{ok:false,msg:'Low contrast — move to a brighter area'};
+  return{ok:true,score:Math.min(100,Math.round((avg/200)*80+20))};
+}
+
+// Inspector 7: Sharpness / blur check
+function inspectSharpness(ctx,w,h){
+  const d=ctx.getImageData(0,0,Math.min(w,200),Math.min(h,200)).data;
+  let laplacian=0,count=0;
+  const W=Math.min(w,200),H=Math.min(h,200);
+  for(let y=1;y<H-1;y++){
+    for(let x=1;x<W-1;x++){
+      const idx=(y*W+x)*4;
+      const c=0.299*d[idx]+0.587*d[idx+1]+0.114*d[idx+2];
+      const l=0.299*d[idx-4]+0.587*d[idx-3]+0.114*d[idx-2];
+      const r=0.299*d[idx+4]+0.587*d[idx+5]+0.114*d[idx+6];
+      const u=0.299*d[idx-W*4]+0.587*d[idx-W*4+1]+0.114*d[idx-W*4+2];
+      const dn2=0.299*d[idx+W*4]+0.587*d[idx+W*4+1]+0.114*d[idx+W*4+2];
+      laplacian+=Math.abs(4*c-l-r-u-dn2);count++;
+    }
+  }
+  const sharpness=laplacian/count;
+  if(sharpness<1.5)return{ok:false,msg:'Hold still — image is blurry'};
+  return{ok:true,score:Math.min(100,Math.round(sharpness*10))};
+}
+
+// Inspector 8: Stability (tracks last position)
+let lastNosePos={x:-1,y:-1};
+function inspectStability(lms){
+  const nose=lms[0];
+  if(!nose)return{ok:false,msg:'Hold still'};
+  if(lastNosePos.x<0){lastNosePos={x:nose.x,y:nose.y};return{ok:false,msg:'Hold still...'};};
+  const movement=Math.hypot(nose.x-lastNosePos.x,nose.y-lastNosePos.y)*1000;
+  lastNosePos={x:nose.x,y:nose.y};
+  if(movement>8)return{ok:false,msg:'Hold still — too much movement'};
+  return{ok:true,score:Math.min(100,Math.round(100-movement*8))};
+}
+
+// Inspector 9: Dynamic distance estimation
+function inspectDistance(lms,heightCm){
+  const nose=lms[0],la=lms[27],ra=lms[28];
+  if(!nose||!la||!ra)return{ok:false,msg:'Full body must be visible',distanceCm:250};
+  const bodyRatio=Math.abs(((la.y+ra.y)/2)-nose.y);
+  if(bodyRatio<0.35)return{ok:false,msg:'Step closer — too far away',distanceCm:350};
+  if(bodyRatio>0.92)return{ok:false,msg:'Step back — too close',distanceCm:150};
+  // Estimate real distance: at ratio=0.65, distance≈250cm (calibrated empirically)
+  const estimatedDist=Math.round(250*(0.65/bodyRatio));
+  const confidence=Math.round(90-Math.abs(bodyRatio-0.65)*100);
+  return{ok:true,distanceCm:estimatedDist,confidence:Math.max(60,confidence),
+    score:Math.min(100,Math.round(100-Math.abs(estimatedDist-250)/5))};
+}
+
+// ── READINESS SCORE ────────────────────────────────────────────
+function computeReadiness(scores){
+  // Weighted average of inspector scores
+  const weights={person:25,pose:20,lighting:20,sharpness:15,stability:15,distance:5};
+  let total=0,weight=0;
+  for(const[k,w] of Object.entries(weights)){
+    if(scores[k]!==undefined){total+=scores[k]*w;weight+=w;}
+  }
+  return Math.round(total/weight);
+}
+
+// ── FCIE MAIN SCAN FUNCTION ────────────────────────────────────
+async function startScan(view){
+  // Validate required fields before camera opens
+  if(view==='front'||view==='side'){
+    const heightCm=getHeightCm();
+    const weightKg=parseFloat(document.getElementById('weight').value)||0;
+    const bodyType=document.getElementById('body-type').value;
+    if(!heightCm||heightCm<140||heightCm>220){
+      showToast('Enter your height first — required before scanning.');
+      document.getElementById('height-cm').scrollIntoView({behavior:'smooth',block:'center'});return;
+    }
+    if(!weightKg||weightKg<30||weightKg>200){
+      showToast('Enter your weight first — required before scanning.');
+      document.getElementById('weight').scrollIntoView({behavior:'smooth',block:'center'});return;
+    }
+    if(!bodyType){
+      showToast('Select your body type first — required before scanning.');
+      document.getElementById('body-type').scrollIntoView({behavior:'smooth',block:'center'});return;
+    }
+  }
+
+  if (!await vision) { showToast('Body scanner unavailable. Check your connection and refresh.'); return; }
+  closeCapture();
+  stopCamera();
+  fcieLoopActive=false;
+  if(countdownTimer){clearInterval(countdownTimer);countdownTimer=null;}
+  lastNosePos={x:-1,y:-1};
+  bestFrames[view]=null;
+
+  const areaId=view==='front'?'front-area':view==='side'?'side-area':'tryon-person-area';
+  const area=document.getElementById(areaId);
+  previousCapture={area,content:[...area.childNodes],className:area.className,onclick:area.onclick};
   area.innerHTML='';
   area.classList.add('active-cam');
+  area.classList.remove('captured');
 
+  const stage = openCapture(area, view==='tryon'?'Try-on photo':`${view==='front'?'Front':'Side'} body scan`,()=>startScan(view));
+
+  // DOM structure
   const vid=document.createElement('video');
   vid.autoplay=true;vid.playsInline=true;vid.muted=true;
   vid.style.cssText='position:absolute;inset:0;width:100%;height:100%;object-fit:cover;';
 
-  const a4=document.createElement('div');
-  a4.className='virtual-a4';
-  a4.innerHTML='<div class="a4-label">Virtual A4 · Place foot inside · 21×29.7cm</div><div class="a4-c tl"></div><div class="a4-c tr"></div><div class="a4-c bl"></div><div class="a4-c br"></div>';
+  const overlayCanvas=document.createElement('canvas');
+  overlayCanvas.style.cssText='position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:4;';
 
-  const status=document.createElement('div');
-  status.className='cam-status-bar';
-  status.innerHTML='<div class="cam-pill"><div class="status-dot loading"></div><span>Place foot inside the guide</span></div>';
+  // Readiness HUD
+  const hud=document.createElement('div');
+  hud.style.cssText='position:absolute;top:10px;left:10px;right:10px;z-index:8;pointer-events:none;';
+  hud.innerHTML=`
+    <div id="fcie-score-bar" style="background:rgba(26,18,9,0.82);border-radius:10px;padding:8px 12px;display:flex;align-items:center;gap:10px;backdrop-filter:blur(6px);">
+      <div style="flex:1;height:6px;background:rgba(255,255,255,0.15);border-radius:3px;overflow:hidden;">
+        <div id="fcie-bar-fill" style="height:100%;width:0%;background:#C8956C;border-radius:3px;transition:width 0.3s;"></div>
+      </div>
+      <span id="fcie-score-txt" style="color:white;font-size:12px;font-weight:600;white-space:nowrap;min-width:60px;">Initialising</span>
+    </div>
+    <div id="fcie-feedback" style="margin-top:6px;background:rgba(26,18,9,0.75);border-radius:8px;padding:6px 12px;color:white;font-size:13px;font-weight:500;text-align:center;backdrop-filter:blur(6px);"></div>`;
 
-  const capBtn=document.createElement('button');
-  capBtn.textContent='📸 Capture Foot';
-  capBtn.style.cssText='position:absolute;bottom:10px;left:50%;transform:translateX(-50%);z-index:10;background:var(--warm);color:white;border:none;border-radius:8px;padding:9px 20px;font-size:13px;cursor:pointer;font-weight:600;';
-  capBtn.onclick=e=>{e.stopPropagation();captureFootPhoto(vid,side);};
+  // Clothing instruction (Inspector 4 — text only)
+  const clothingTip=document.createElement('div');
+  clothingTip.style.cssText='position:absolute;bottom:60px;left:10px;right:10px;z-index:8;background:rgba(212,168,67,0.92);border-radius:8px;padding:8px 12px;font-size:12px;font-weight:600;color:#1A1209;text-align:center;';
+  clothingTip.textContent='👕 Wear fitted clothing — t-shirt, leggings, fitted trousers. Remove jackets and loose outerwear.';
+
+  // Countdown display
+  const cdDiv=document.createElement('div');
+  cdDiv.style.cssText='position:absolute;bottom:12px;left:50%;transform:translateX(-50%);z-index:10;background:rgba(26,18,9,0.92);color:white;border-radius:10px;padding:12px 24px;font-size:16px;font-weight:700;font-family:"Inter",sans-serif;white-space:nowrap;text-align:center;min-width:200px;box-shadow:0 4px 18px rgba(0,0,0,0.5);display:none;';
+
+  // Silhouette guide
+  const sil=document.createElement('div');
+  sil.className='body-sil';
+  sil.innerHTML=view!=='side'
+    ?`<svg viewBox="0 0 100 220" fill="none" stroke="rgba(200,149,108,0.4)" stroke-width="2"><circle cx="50" cy="22" r="16"/><line x1="50" y1="38" x2="50" y2="130"/><line x1="50" y1="55" x2="15" y2="100"/><line x1="50" y1="55" x2="85" y2="100"/><line x1="50" y1="130" x2="25" y2="210"/><line x1="50" y1="130" x2="75" y2="210"/></svg>`
+    :`<svg viewBox="0 0 60 220" fill="none" stroke="rgba(200,149,108,0.4)" stroke-width="2"><circle cx="30" cy="22" r="16"/><line x1="30" y1="38" x2="30" y2="130"/><line x1="30" y1="60" x2="18" y2="95"/><line x1="30" y1="130" x2="22" y2="210"/><line x1="30" y1="130" x2="38" y2="210"/></svg>`;
+
+  const fp=document.createElement('div');
+  fp.className='footprint-anchor';
+  fp.innerHTML='<div class="footprint-box"></div><div class="footprint-label">Place feet here · ~2.5m back</div>';
 
   const tog=document.createElement('button');
   tog.innerHTML='🔄';
-  tog.style.cssText='position:absolute;top:8px;right:8px;z-index:10;background:rgba(26,18,9,0.75);color:white;border:none;border-radius:6px;padding:5px 9px;font-size:12px;cursor:pointer;';
-  tog.onclick=async e=>{e.stopPropagation();if(footStream){footStream.getTracks().forEach(t=>t.stop());}const facing=camFacing.shoe==='environment'?'user':'environment';camFacing.shoe=facing;try{footStream=await navigator.mediaDevices.getUserMedia({video:{facingMode:facing}});vid.srcObject=footStream;}catch(err){}};
+  tog.setAttribute('aria-label','Switch camera');
+  tog.style.cssText='position:absolute;top:8px;right:8px;z-index:12;background:rgba(26,18,9,0.75);color:white;border:none;border-radius:6px;padding:6px 10px;font-size:13px;cursor:pointer;';
+  tog.onclick=e=>{e.stopPropagation();fcieLoopActive=false;if(countdownTimer){clearInterval(countdownTimer);countdownTimer=null;}camFacing[view]=camFacing[view]==='user'?'environment':'user';startScan(view);};
 
-  area.appendChild(vid);area.appendChild(a4);area.appendChild(status);area.appendChild(capBtn);area.appendChild(tog);
+  area.appendChild(vid);area.appendChild(overlayCanvas);area.appendChild(hud);
+  area.appendChild(clothingTip);area.appendChild(sil);area.appendChild(fp);
+  area.appendChild(tog);area.appendChild(cdDiv);
   area.onclick=null;
 
+  // ── Open camera ──
+  let stream;
   try{
-    const stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:'environment',width:{ideal:1080},height:{ideal:1080}}});
-    footStream=stream;vid.srcObject=stream;
+    stream=await navigator.mediaDevices.getUserMedia({
+      video:{facingMode:camFacing[view],width:{ideal:1280},height:{ideal:720}}
+    });
   }catch(e){
-    try{
-      const stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:'user'}});
-      footStream=stream;vid.srcObject=stream;
-    }catch(e2){showToast('Camera access denied.');}
-  }
-}
-
-function captureFootPhoto(video,side){
-  const canvas=document.createElement('canvas');
-  canvas.width=video.videoWidth;canvas.height=video.videoHeight;
-  canvas.getContext('2d').drawImage(video,0,0);
-  const url=canvas.toDataURL('image/jpeg',0.9);
-
-  // validate: must have a contour in the A4 region
-  if(!hasFootContour(url)){
-    showToast('Could not detect a foot in the frame. Place your foot flat inside the guide and try again.');return;
+    showToast('Camera access denied. Allow camera permission in browser settings.');
+    closeCapture();
+    return;
   }
 
-  footCaptures[side]=url;
-  if(footStream){footStream.getTracks().forEach(t=>t.stop());footStream=null;}
+  if (!vid.isConnected || captureDialog.dataset.session!==stage) {stream.getTracks().forEach(track=>track.stop());return;}
+  activeStream=stream;
+  vid.srcObject=stream;
+  await new Promise(r=>{vid.onloadeddata=r;setTimeout(r,3000);}); // 3s max wait
+  if (captureDialog.dataset.session!==stage) return;
 
-  const areaId=side==='left'?'shoe-left-area':'shoe-right-area';
-  const area=document.getElementById(areaId);
-  area.classList.remove('active-cam');area.classList.add('captured');
-  area.innerHTML=`<div class="capture-preview" style="position:relative"><img src="${url}" style="width:100%;border-radius:var(--radius);display:block"><div class="retake-bar" onclick="startFootScan('${side}')">✓ Captured · Tap to retake</div></div>`;
-  area.onclick=null;
+  // Voice instruction
+  const instruction=view!=='side'
+    ?'Please stand about 2 and a half metres from the camera. Face forward. Keep your full body in frame.'
+    :'Turn 90 degrees to show your side profile. Keep your full body visible.';
+  speakInstruction(instruction);
 
-  document.getElementById(side==='left'?'shoe-left-status':'shoe-right-status').textContent='✓ Captured';
-  const leftOk=footCaptures.left;
-  const rightOk=!shoeAsym||footCaptures.right;
-  document.getElementById('shoe-btn').disabled=!(leftOk&&rightOk);
-}
+  const setFeedback=(msg,colour='white')=>{
+    const el=document.getElementById('fcie-feedback');
+    if(el){el.textContent=msg;el.style.color=colour;}
+  };
+  const setScore=(pct)=>{
+    const fill=document.getElementById('fcie-bar-fill');
+    const txt=document.getElementById('fcie-score-txt');
+    if(fill)fill.style.width=pct+'%';
+    if(fill)fill.style.background=pct>=95?'#5A8A5A':pct>=70?'#C8956C':'#C05050';
+    if(txt)txt.textContent=pct>=95?'✓ Ready!':pct+'% ready';
+  };
 
-function hasFootContour(dataUrl){
-  // quick validation using canvas pixel analysis
-  if(!cvReady||typeof cv==='undefined')return true; // skip if OpenCV not loaded
-  try{
-    const img=new Image();img.src=dataUrl;
-    const canvas=document.createElement('canvas');
-    canvas.width=200;canvas.height=200;
-    const ctx=canvas.getContext('2d');
-    ctx.drawImage(img,0,0,200,200);
-    const d=ctx.getImageData(0,0,200,200).data;
-    // simple dark pixel count in center region — foot is typically darker than A4 white paper or background
-    let darkPx=0;
-    for(let i=0;i<d.length;i+=4){
-      const lum=0.299*d[i]+0.587*d[i+1]+0.114*d[i+2];
-      if(lum<140)darkPx++;
+  // ── FCIE VIDEO LOOP ──────────────────────────────────────────
+  fcieLoopActive=true;
+  let stableFrames=0;
+  let countingDown=false;
+  let bestFrameScore=0;
+  let countVal=3;
+
+  const oc=overlayCanvas;
+  let lastFrameTime=-1;
+  const sample=document.createElement('canvas');
+  sample.width=160;
+  sample.height=120;
+  const sampleContext=sample.getContext('2d',{willReadFrequently:true});
+
+  function fcieLoop(){
+    if(!fcieLoopActive || captureDialog.dataset.session!==stage)return;
+    if(vid.readyState<2 || !vid.videoWidth || vid.currentTime===lastFrameTime) {
+      requestAnimationFrame(fcieLoop);
+      return;
     }
-    return darkPx>(200*200*0.08); // at least 8% dark pixels = something is there
-  }catch(e){return true;}
+    lastFrameTime=vid.currentTime;
+
+    if(oc.width!==vid.videoWidth)oc.width=vid.videoWidth;
+    if(oc.height!==vid.videoHeight)oc.height=vid.videoHeight;
+    const ctx=oc.getContext('2d');
+    ctx.clearRect(0,0,oc.width,oc.height);
+
+    // Draw current video frame to canvas so lighting/sharpness inspectors can sample it
+    sampleContext.drawImage(vid,0,0,sample.width,sample.height);
+
+    // Get live landmarks from VIDEO mode detector
+    let lms=null;
+    let silhouette=null;
+    try{
+      videoModeDetector.detectForVideo(vid,performance.now(),result=>{
+        lms=result.landmarks?.[0]||null;
+        if(view!=='tryon')silhouette=silhouetteMeasures(result.segmentationMasks?.[0],lms);
+      });
+    }catch(e){
+      console.warn('[Faishonix] VIDEO detect error:',e.message);
+    }
+
+
+
+    // Run inspectors
+    const scores={};
+    const debugLines=[];
+    let allOk=true;
+    let feedback='Stand in frame — full body visible';
+
+    // Inspector 1+2: person + visibility
+    const p=inspectPerson(lms,view);
+    if(!p.ok)ctx.clearRect(0,0,oc.width,oc.height);
+    scores.person=p.ok?p.score||100:0;
+    if(!p.ok){
+      debugLines.push('Body: ✗ '+p.msg);
+      feedback=p.msg;allOk=false;
+      setScore(15);setFeedback(feedback,'#F0C44A');
+      requestAnimationFrame(fcieLoop);return;
+    }
+    debugLines.push('Body: ✓');
+
+    // Inspector 3: pose
+    const pose=inspectPose(lms,view);
+    scores.pose=pose.ok?pose.score:0;
+    debugLines.push('Pose: '+(pose.ok?'✓':'✗ '+pose.msg));
+    if(!pose.ok){feedback=pose.msg;allOk=false;}
+
+    // Inspector 5+6: lighting — sample raw video pixels via imageData
+    const lit=inspectLighting(sampleContext,sample.width,sample.height);
+    scores.lighting=lit.ok?lit.score:0;
+    debugLines.push('Lighting: '+(lit.ok?`✓ (${lit.score}%)`:('✗ '+lit.msg)));
+    if(!lit.ok&&allOk){feedback=lit.msg;allOk=false;}
+
+    // Inspector 7: sharpness
+    const sharp=inspectSharpness(sampleContext,sample.width,sample.height);
+    scores.sharpness=sharp.ok?sharp.score:0;
+    debugLines.push('Sharpness: '+(sharp.ok?'✓':'✗ '+sharp.msg));
+    if(!sharp.ok&&allOk){feedback=sharp.msg;allOk=false;}
+
+    // Inspector 8: stability
+    const stab=inspectStability(lms);
+    scores.stability=stab.ok?stab.score:0;
+    debugLines.push('Stability: '+(stab.ok?'✓':'✗ '+stab.msg));
+    if(!stab.ok&&allOk){feedback=stab.msg;allOk=false;}
+
+    // Inspector 9: distance
+    const heightCm=getHeightCm();
+    const dist=inspectDistance(lms,heightCm);
+    scores.distance=dist.ok?dist.score:0;
+    debugLines.push(`Distance: ${dist.ok?'✓ ~'+dist.distanceCm+'cm':'✗ '+dist.msg}`);
+    if(!dist.ok&&allOk){feedback=dist.msg;allOk=false;}
+
+    ctx.clearRect(0,0,oc.width,oc.height);
+    // Draw skeleton with colour based on readiness
+    drawSkeleton(ctx,lms,oc.width,oc.height,allOk?'#5A8A5A':'#C8956C');
+
+    // Compute readiness
+    const readiness=computeReadiness(scores);
+    setScore(readiness);
+
+    // Log diagnostics every 60 frames
+    if(!fcieLoop._frame)fcieLoop._frame=0;
+    fcieLoop._frame++;
+    if(fcieLoop._frame%60===0){
+      console.log('[Faishonix FCIE]',debugLines.join(' | '),'| Readiness:'+readiness+'%');
+    }
+
+    if(allOk&&readiness>=72){
+      stableFrames++;
+      setFeedback(stableFrames<10?'Hold still...':'✓ Perfect — capturing soon','#5A8A5A');
+
+      // Store this as a candidate best frame
+      const snap=document.createElement('canvas');
+      snap.width=oc.width;snap.height=oc.height;
+      snap.getContext('2d').drawImage(vid,0,0,snap.width,snap.height);
+      const frameScore=readiness+(scores.sharpness||0)*0.3+(scores.stability||0)*0.2;
+      if(frameScore>bestFrameScore){
+        bestFrameScore=frameScore;
+        bestFrames[view]={canvas:snap,landmarks:lms,silhouette};
+      }
+
+      // Start countdown after enough stable frames
+      if(stableFrames>=12&&!countingDown){
+        countingDown=true;
+        countVal=3;
+        cdDiv.style.display='block';
+        cdDiv.textContent=`✓ Capturing in ${countVal}...`;
+        speakInstruction(`Hold still. Capturing in ${countVal}`);
+        countdownTimer=setInterval(()=>{
+          countVal--;
+          if(countVal>0){
+            cdDiv.textContent=`✓ Capturing in ${countVal}...`;
+          }else{
+            clearInterval(countdownTimer);countdownTimer=null;
+            cdDiv.textContent='📸 Captured!';
+            fcieLoopActive=false;
+            finalizeScan(view);
+          }
+        },1000);
+      }
+    }else{
+      // Reset if conditions lost during countdown
+      if(countingDown){
+        clearInterval(countdownTimer);countdownTimer=null;
+        countingDown=false;cdDiv.style.display='none';
+        setFeedback('Restarting — hold position','#F04A4A');
+        speakInstruction('Restarting. Hold your position.');
+      }
+      stableFrames=Math.max(0,stableFrames-2);
+      setFeedback(feedback,'#F0C44A');
+    }
+
+    requestAnimationFrame(fcieLoop);
+  }
+
+  requestAnimationFrame(fcieLoop);
 }
 
-async function measureFootFromVirtualA4(dataUrl,gender){
-  return new Promise(resolve=>{
-    if(!cvReady||typeof cv==='undefined'){resolve(fallbackFoot(gender));return;}
-    const img=new Image();
-    img.onload=()=>{
-      try{
-        const src=cv.imread(img);
-        const w=src.cols,h=src.rows;
-        const rx=Math.floor(w*0.10),ry=Math.floor(h*0.10);
-        const rw=Math.floor(w*0.80),rh=Math.floor(h*0.80);
-        const pxPerCm=(rw/21.0+rh/29.7)/2;
-
-        const roi=src.roi(new cv.Rect(rx,ry,rw,rh));
-        const gray=new cv.Mat();cv.cvtColor(roi,gray,cv.COLOR_RGBA2GRAY);
-        const blur=new cv.Mat();cv.GaussianBlur(gray,blur,new cv.Size(7,7),0);
-        const thresh=new cv.Mat();cv.adaptiveThreshold(blur,thresh,255,cv.ADAPTIVE_THRESH_GAUSSIAN_C,cv.THRESH_BINARY_INV,21,8);
-
-        const ctrs=new cv.MatVector(),hier=new cv.Mat();
-        cv.findContours(thresh,ctrs,hier,cv.RETR_EXTERNAL,cv.CHAIN_APPROX_SIMPLE);
-
-        let best=null,bestA=0;
-        for(let i=0;i<ctrs.size();i++){
-          const c=ctrs.get(i);
-          const a=cv.contourArea(c);
-          const r=cv.boundingRect(c);
-          if(a>bestA&&r.height>r.width&&a>rw*rh*0.04&&a<rw*rh*0.75){bestA=a;best=r;}
-          c.delete();
-        }
-        src.delete();roi.delete();gray.delete();blur.delete();thresh.delete();ctrs.delete();hier.delete();
-
-        if(!best)return resolve(fallbackFoot(gender));
-        const fl=parseFloat((best.height/pxPerCm).toFixed(1));
-        const fw=parseFloat((best.width/pxPerCm).toFixed(1));
-        if(fl<17||fl>33||fw<4||fw>15)return resolve(fallbackFoot(gender));
-        resolve({footLen:fl,footWid:fw,detected:true});
-      }catch(e){resolve(fallbackFoot(gender));}
-    };
-    img.onerror=()=>resolve(fallbackFoot(gender));
-    img.src=dataUrl;
-  });
+// ── FINALIZE SCAN — switch to IMAGE mode for precise landmark detection ──
+const capturedAspects={};
+const capturedSilhouettes={};
+function finalizeScan(view){
+  const best=bestFrames[view];
+  if(!best){closeCapture();showToast('No usable frame. Please try again.');return;}
+  capturedAspects[view]=best.canvas.width/best.canvas.height;
+  capturedSilhouettes[view]=best.silhouette;
+  landmarks[view]=best.landmarks;
+  closeCapture();
+  doCapture(best.canvas.toDataURL('image/jpeg',0.88),view,best.landmarks);
 }
 
-function fallbackFoot(gender){
-  const base=gender==='male'?26.5:24.0;
-  const fl=parseFloat((base+(Math.random()*1.2-.6)).toFixed(1));
-  return{footLen:fl,footWid:parseFloat((fl*0.385).toFixed(1)),detected:false};
+function stopCamera(){
+  fcieLoopActive=false;
+  if(activeStream){activeStream.getTracks().forEach(t=>t.stop());activeStream=null;}
 }
+function toggleShoeAsym(){
+  shoeAsym=document.getElementById('shoe-asym').checked;
+  document.getElementById('shoe-right-section').style.display=shoeAsym?'block':'none';
+  document.getElementById('shoe-left-label').textContent=shoeAsym?'Left foot':'Foot scan';
+  shoeResultLocked=false;
+  updateShoeButton();
+}
+
 
 function lookupShoe(len,gender){
   let m=SHOE_DATA.find(r=>len>=r[0]&&len<=r[1]&&r[2]===gender);
@@ -1341,219 +1517,103 @@ function lookupShoe(len,gender){
   return m;
 }
 
-async function runShoeScan(){
-  if(!footCaptures.left){showToast('Please scan your foot first.');return;}
-  // LOCK: stop any camera still running
-  if(footStream){footStream.getTracks().forEach(t=>t.stop());footStream=null;}
-
-  showLoad('Measuring foot...','Using virtual A4 as scale reference');
+let shoeResultLocked=false;
+function runShoeScan(){
+  if(shoeResultLocked)return;
   const gender=document.getElementById('shoe-gender').value;
-  const lr=await measureFootFromVirtualA4(footCaptures.left,gender);
-  let rr=null;
-  if(shoeAsym&&footCaptures.right)rr=await measureFootFromVirtualA4(footCaptures.right,gender);
-  await sleep(400);hideLoad();
-
-  const lm=lookupShoe(lr.footLen,gender);
-  const rm=rr?lookupShoe(rr.footLen,gender):null;
-
-  let gridHtml='';
-  if(shoeAsym&&rm){
-    const asymWarn=lm[3]!==rm[3];
-    gridHtml=`
-      <div class="meas-item"><div class="meas-val">${lm[3]}</div><div class="meas-label">NG · Left</div></div>
-      <div class="meas-item ${asymWarn?'asym':''}"><div class="meas-val">${rm[3]}</div><div class="meas-label">NG · Right${asymWarn?' ⚠':''}</div></div>
-      <div class="meas-item"><div class="meas-val">${lm[4]}</div><div class="meas-label">UK · Left</div></div>
-      <div class="meas-item"><div class="meas-val">${rm[4]}</div><div class="meas-label">UK · Right</div></div>
-      <div class="meas-item"><div class="meas-val">${lm[5]}</div><div class="meas-label">EU · Left</div></div>
-      <div class="meas-item"><div class="meas-val">${rm[5]}</div><div class="meas-label">EU · Right</div></div>`;
-    document.getElementById('shoe-meas-text').textContent=`Left: ${lr.footLen}×${lr.footWid}cm · Right: ${rr.footLen}×${rr.footWid}cm${lm[3]!==rm[3]?' ⚠ Different sizes detected — order the larger, use insole for smaller':''}`;
-  }else{
-    gridHtml=`
-      <div class="meas-item"><div class="meas-val">${lm[3]}</div><div class="meas-label">NG Size</div></div>
-      <div class="meas-item"><div class="meas-val">${lm[4]}</div><div class="meas-label">UK Size</div></div>
-      <div class="meas-item"><div class="meas-val">${lm[5]}</div><div class="meas-label">EU Size</div></div>
-      <div class="meas-item"><div class="meas-val">${lm[6]}</div><div class="meas-label">US Size</div></div>`;
-    document.getElementById('shoe-meas-text').textContent=`Foot: ${lr.footLen}cm × ${lr.footWid}cm${lr.detected?' · Measured from virtual guide':' · Estimated — ensure foot was inside the white outline'}`;
+  const feet=shoeAsym?['left','right']:['left'];
+  const sizes=feet.map(side=>footCaptures[side]);
+  if(sizes.some(length=>!length)){showToast('Measure each selected foot first.');return;}
+  const chart=SHOE_DATA.filter(row=>row[2]===gender);
+  if(sizes.some(length=>length<chart[0][0]||length>chart.at(-1)[1])){
+    showToast('This length is outside the general chart. Use the brand’s own size chart.');
+    return;
   }
-
-  document.getElementById('shoe-grid').innerHTML=gridHtml;
-  document.getElementById('shoe-fit-note').textContent=`Fit: ${lm[7]}. Nigerian/West African feet tend to be wider — if between sizes, size up. Leather shoes: size up 0.5. Sneakers: true to size.`;
+  document.getElementById('shoe-grid').innerHTML=sizes.map((length,index)=>{
+    const size=lookupShoe(length,gender);
+    return ['NG','UK','EU','US'].map((label,i)=>`<div class="meas-item"><div class="meas-val">${size[i+3]}</div><div class="meas-label">${label}${shoeAsym?' · '+feet[index]:''}</div></div>`).join('');
+  }).join('');
+  document.getElementById('shoe-meas-text').textContent=sizes.map((length,i)=>`${shoeAsym?feet[i]+': ':''}${length} cm`).join(' · ');
+  document.getElementById('shoe-fit-note').textContent='General size guide. Check the brand’s foot-length chart and fit to the larger foot.';
   document.getElementById('shoe-placeholder').style.display='none';
   document.getElementById('shoe-results-panel').classList.add('show');
-  document.getElementById('shoe-results-panel').scrollIntoView({behavior:'smooth',block:'nearest'});
+  document.getElementById('shoe-results-panel').scrollIntoView({block:'nearest'});
+  shoeResultLocked=true;
+  document.getElementById('shoe-btn').disabled=true;
+  saveToD1({item:'shoes',measurements:{left:sizes[0],right:sizes[1]??null,size:lookupShoe(Math.max(...sizes),gender)[5]}});
 }
 
-// ═══════════════════════════════════════
-// CLAUDE API — OUTFIT SUGGESTIONS
-// ═══════════════════════════════════════
-async function getOutfitSuggestions(){
-  if(CLAUDE_API_KEY==='YOUR_CLAUDE_API_KEY_HERE'){
-    showToast('Claude API key not configured. Add it to the CLAUDE_API_KEY variable.');return;
-  }
-  const item=ITEMS[selectedItem];
-  const gender=document.getElementById('gender').value;
-  showLoad('Getting outfit ideas...','Asking AI stylist');
-
-  try{
-    const resp=await fetch('https://api.anthropic.com/v1/messages',{
-      method:'POST',
-      headers:{'Content-Type':'application/json','x-api-key':CLAUDE_API_KEY,'anthropic-version':'2023-06-01'},
-      body:JSON.stringify({
-        model:'claude-sonnet-4-6',max_tokens:600,
-        messages:[{role:'user',content:`You are a fashion stylist for an AI fashion app called Faishonix. A ${gender} customer just scanned their body and is buying a ${item.label}. Suggest exactly 3 complementary outfit pieces that would go well with it. For each, give: a short name (3-5 words), a one-sentence style description, and a style tag (Casual/Formal/Smart-Casual/Streetwear/Traditional). Respond ONLY in JSON like: [{"name":"...","desc":"...","tag":"..."},...]`}]
-      })
-    });
-    const data=await resp.json();
-    hideLoad();
-    const text=data.content[0].text;
-    const clean=text.replace(/```json|```/g,'').trim();
-    const outfits=JSON.parse(clean);
-    renderOutfits(outfits);
-  }catch(e){
-    hideLoad();
-    console.error(e);
-    // fallback suggestions
-    renderOutfits([
-      {name:'Slim-fit chinos',desc:'A clean neutral trouser that pairs with almost anything and keeps the look sharp.',tag:'Smart-Casual'},
-      {name:'White leather sneakers',desc:'Keep footwear minimal and clean to let the main piece speak.',tag:'Casual'},
-      {name:'Minimalist watch',desc:'A thin-case watch adds structure and intention to any outfit.',tag:'Formal'},
-    ]);
-  }
-}
-
-function renderOutfits(outfits){
-  const sec=document.getElementById('outfit-section');
-  const grid=document.getElementById('outfit-grid');
-  grid.innerHTML=outfits.map(o=>`
-    <div class="outfit-card">
-      <div class="outfit-name">${o.name}</div>
-      <div class="outfit-desc">${o.desc}</div>
-      <span class="outfit-tag">${o.tag}</span>
-    </div>`).join('');
-  sec.style.display='block';
-}
-
-// ═══════════════════════════════════════
-// VIRTUAL TRY-ON
-// ═══════════════════════════════════════
-let garmentUrl=null;
 function handleGarment(e){
   const f=e.target.files[0];if(!f)return;
+  if(!['image/jpeg','image/png','image/webp'].includes(f.type)||f.size>2_350_000){
+    e.target.value='';
+    showToast('Choose a JPEG, PNG or WebP under 2.3 MB.');
+    return;
+  }
   const r=new FileReader();
   r.onload=ev=>{
     garmentUrl=ev.target.result;
     const box=document.getElementById('garment-drop');
     box.style.cssText='position:relative;border-radius:var(--radius);overflow:hidden;aspect-ratio:3/4;max-height:300px;border:2px solid var(--border);cursor:pointer;';
-    box.innerHTML=`<img src="${garmentUrl}" style="width:100%;height:100%;object-fit:cover;display:block"><div class="retake-bar" onclick="document.getElementById('garment-input').click()">Tap to change garment</div>`;
+    box.innerHTML=`<img src="${garmentUrl}" alt="Garment preview" style="width:100%;height:100%;object-fit:cover;display:block"><span class="retake-bar">Change garment</span>`;
     checkTryOnReady();
-  };r.readAsDataURL(f);
+  };
+  r.onerror=()=>showToast('Could not read that image. Try another file.');
+  r.readAsDataURL(f);
 }
 
 async function runTryOn(){
   const person=captures.tryon||captures.front;
-  if(!person){showToast('Please capture your front photo first.');return;}
-  if(!garmentUrl){showToast('Please upload a garment image.');return;}
-
-  showLoad('Generating try-on...','AI is compositing the outfit onto your body · 15–25 seconds');
+  if(!person||!garmentUrl){showToast('Add a person photo and garment photo first.');return;}
+  if(document.getElementById('tryon-btn').disabled)return;
+  if(!window.confirm('Send both photos to Replicate to generate your virtual try-on?'))return;
+  document.getElementById('tryon-btn').disabled=true;
+  showLoad('Generating try-on…','This may take up to two minutes.');
   try{
-    const resp=await fetch('https://api.replicate.com/v1/predictions',{
-      method:'POST',
-      headers:{'Authorization':`Token ${REPLICATE_TOKEN}`,'Content-Type':'application/json'},
-      body:JSON.stringify({version:IDM_VTON_VER,input:{human_img:person,garm_img:garmentUrl,garment_des:'fashion garment from e-commerce listing'}})
-    });
-    if(!resp.ok)throw new Error(resp.status);
-    const pred=await resp.json();
-
-    let result=pred,tries=0;
-    while(result.status!=='succeeded'&&result.status!=='failed'&&tries<40){
-      await sleep(2000);
-      const p=await fetch(`https://api.replicate.com/v1/predictions/${pred.id}`,{headers:{'Authorization':`Token ${REPLICATE_TOKEN}`}});
-      result=await p.json();tries++;
+    let result=await api('/api/try-on',{person,garment:garmentUrl,category:document.getElementById('tryon-category').value});
+    for(let attempt=0;attempt<50 && ['starting','processing'].includes(result.status);attempt++){
+      await sleep(2200);
+      result=await api('/api/try-on/'+encodeURIComponent(result.id));
     }
-    hideLoad();
-
-    if(result.status==='succeeded'&&result.output){
-      const url=Array.isArray(result.output)?result.output[0]:result.output;
-      document.getElementById('tryon-result-img').src=url;
-      document.getElementById('tryon-result-img').style.display='block';
-      document.getElementById('tryon-note').textContent='This is how the garment looks on your actual body, generated by AI. Results may vary with photo quality.';
-      document.getElementById('tryon-placeholder').style.display='none';
-      document.getElementById('tryon-results-panel').classList.add('show');
-      document.getElementById('tryon-results-panel').scrollIntoView({behavior:'smooth',block:'nearest'});
-    }else{
-      showToast('Try-on generation failed. Check your internet and API key, then retry.');
-    }
-  }catch(err){
-    hideLoad();showToast('Could not connect to try-on service. Check connection and API key.');console.error(err);
-  }
+    if(result.status!=='succeeded'||!result.output)throw new Error('Try-on did not complete. Please try again.');
+    const preview=document.getElementById('tryon-result-img');
+    preview.src=result.output;
+    preview.style.display='block';
+    document.getElementById('tryon-note').textContent='Generated preview. Fabric, fit and colour can differ from the actual garment.';
+    document.getElementById('occasion-box').style.display='block';
+    document.getElementById('tryon-placeholder').style.display='none';
+    document.getElementById('tryon-results-panel').classList.add('show');
+    preview.scrollIntoView({block:'nearest'});
+  }catch(error){showToast(error.message);}
+  finally{hideLoad();checkTryOnReady();}
 }
 
-// ═══════════════════════════════════════
-// SEARCH YOUR WARDROBE — Claude API
-// ═══════════════════════════════════════
 let isListening=false;
 let recognition=null;
 
 function toggleVoice(){
-  if(!('webkitSpeechRecognition' in window||'SpeechRecognition' in window)){showToast('Voice input not supported on this browser.');return;}
+  if(!('webkitSpeechRecognition' in window||'SpeechRecognition' in window)){showToast('Voice input not supported on this browser. Try Chrome.');return;}
   if(isListening){recognition&&recognition.stop();return;}
+  const lang=document.getElementById('voice-lang')?.value||navigator.language||'en-US';
   recognition=new(window.SpeechRecognition||window.webkitSpeechRecognition)();
-  recognition.lang='en-US';recognition.continuous=false;recognition.interimResults=false;
+  recognition.lang=lang;recognition.continuous=false;recognition.interimResults=false;
   recognition.onstart=()=>{isListening=true;document.getElementById('voice-btn').classList.add('listening');};
-  recognition.onresult=e=>{document.getElementById('wardrobe-query').value=e.results[0][0].transcript;};
+  recognition.onresult=e=>{
+    document.getElementById('wardrobe-query').value=e.results[0][0].transcript;
+    setTimeout(()=>searchWardrobe(),400);
+  };
+  recognition.onerror=e=>{showToast('Voice input error: '+e.error+'. Try typing instead.');};
   recognition.onend=()=>{isListening=false;document.getElementById('voice-btn').classList.remove('listening');};
-  recognition.start();
+  try{recognition.start();}catch{showToast('Voice input could not start. Try typing instead.');}
 }
 
 function setMood(el,mood){
   document.querySelectorAll('.mood-tag').forEach(t=>t.classList.remove('active'));
   el.classList.add('active');
   const q=document.getElementById('wardrobe-query');
-  if(!q.value)q.value=mood;
+  q.value=mood;
 }
 
-async function searchWardrobe(){
-  const query=document.getElementById('wardrobe-query').value.trim();
-  if(!query){showToast('Describe your occasion or style first.');return;}
-
-  if(CLAUDE_API_KEY==='YOUR_CLAUDE_API_KEY_HERE'){
-    renderWardrobeResults(getMockWardrobeResults(query));return;
-  }
-
-  showLoad('Searching your wardrobe...','AI is curating looks for you');
-  const gender=document.getElementById('gender').value||'unspecified';
-  const size=document.getElementById('results-panel').classList.contains('show')?document.getElementById('result-size').textContent:'unknown';
-
-  try{
-    const resp=await fetch('https://api.anthropic.com/v1/messages',{
-      method:'POST',
-      headers:{'Content-Type':'application/json','x-api-key':CLAUDE_API_KEY,'anthropic-version':'2023-06-01'},
-      body:JSON.stringify({
-        model:'claude-sonnet-4-6',max_tokens:800,
-        messages:[{role:'user',content:`You are a personal AI stylist for Faishonix. A ${gender} customer (size: ${size}) described: "${query}". Suggest exactly 6 clothing items or outfits they should consider buying. For each item give: name (product-style, 4-6 words), description (1 sentence on why it works for their occasion and body), emoji (one fashion-relevant emoji), style_match (how well it matches their description: "Perfect match", "Great option", or "Worth considering"). Respond ONLY in JSON: [{"name":"...","desc":"...","emoji":"...","match":"..."},...]`}]
-      })
-    });
-    const data=await resp.json();
-    hideLoad();
-    const text=data.content[0].text;
-    const clean=text.replace(/```json|```/g,'').trim();
-    renderWardrobeResults(JSON.parse(clean));
-  }catch(e){
-    hideLoad();console.error(e);
-    renderWardrobeResults(getMockWardrobeResults(query));
-  }
-}
-
-function getMockWardrobeResults(query){
-  return[
-    {name:'Crisp white linen shirt',desc:'Breathable, clean, and versatile — works for almost any smart-casual occasion.',emoji:'👔',match:'Perfect match'},
-    {name:'Navy slim-fit chinos',desc:'A go-to trouser that elevates casual looks without overdressing.',emoji:'👖',match:'Perfect match'},
-    {name:'Tan leather Oxford shoes',desc:'Clean and polished footwear that grounds the whole outfit.',emoji:'👞',match:'Great option'},
-    {name:'Minimalist silver watch',desc:'Adds structure and intention without competing with the outfit.',emoji:'⌚',match:'Great option'},
-    {name:'Lightweight blazer',desc:'Throws the look from casual to smart instantly — easy to carry.',emoji:'🧥',match:'Worth considering'},
-    {name:'Premium white sneakers',desc:'If the occasion allows, sneakers keep things fresh and modern.',emoji:'👟',match:'Worth considering'},
-  ];
-}
 
 function renderWardrobeResults(items){
   document.getElementById('wardrobe-placeholder').style.display='none';
@@ -1573,27 +1633,12 @@ function renderWardrobeResults(items){
 // ═══════════════════════════════════════
 // CLOUDFLARE D1 STORAGE
 // ═══════════════════════════════════════
-async function saveToD1(data){
-  try{
-    // In production, route this through a Cloudflare Worker that has D1 binding
-    // For now, logs locally so data isn't lost even before Worker is set up
-    const existing=JSON.parse(localStorage.getItem('faishonix_scans')||'[]');
-    existing.push(data);
-    localStorage.setItem('faishonix_scans',JSON.stringify(existing.slice(-500))); // keep last 500
-    console.log('Scan saved locally:',data);
-    // TODO: POST to your Cloudflare Worker endpoint that writes to D1
-    // await fetch('https://faishonix-data.flowforge-revenue.workers.dev/save-scan',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(data)});
-  }catch(e){console.warn('Save failed:',e);}
-}
 
-// ═══════════════════════════════════════
-// UTILS
-// ═══════════════════════════════════════
 function sleep(ms){return new Promise(r=>setTimeout(r,ms));}
 function showLoad(t,s){document.getElementById('load-text').textContent=t;document.getElementById('load-sub').textContent=s;document.getElementById('loading').classList.add('show');}
-function updateLoad(t,s){document.getElementById('load-text').textContent=t;document.getElementById('load-sub').textContent=s;}
 function hideLoad(){document.getElementById('loading').classList.remove('show');}
 function showToast(msg){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),3800);}
 </script>
+<script src="/app.js"></script>
 </body>
 </html>

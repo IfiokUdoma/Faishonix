@@ -1,0 +1,18 @@
+name = "faishonix-pilot"
+main = "worker.mjs"
+compatibility_date = "2026-11-27"
+preview_urls = false
+
+[assets]
+directory = "./public"
+binding = "ASSETS"
+run_worker_first = true
+
+[vars]
+TRY_ON_DAILY_LIMIT = "20"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "faishonix-db"
+database_id = "47c9fcac-3957-4faf-ac0f-b914ec21dfaa"
+migrations_dir = "migrations"

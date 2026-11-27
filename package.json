@@ -1,0 +1,18 @@
+{
+  "name": "faishonix-pilot",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler d1 migrations apply DB --local && wrangler dev --ip 127.0.0.1",
+    "deploy": "wrangler deploy",
+    "prepare:vision": "node scripts/prepare-vision.mjs",
+    "predev": "node scripts/prepare-vision.mjs",
+    "predeploy": "node scripts/prepare-vision.mjs"
+  },
+  "devDependencies": {
+    "wrangler": "4"
+  },
+  "dependencies": {
+    "@mediapipe/tasks-vision": "0.10.14"
+  }
+}
