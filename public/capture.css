@@ -58,3 +58,10 @@
 #scanner-catalogue-status { font-size:.9rem; color:var(--gray); }
 #scanner-catalogue-results { grid-template-columns:repeat(auto-fill,minmax(min(210px,100%),1fr)); }
 #vendor-signin { text-decoration:underline; }
+
+#item-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(130px,1fr)); }
+.garment-option { border-radius:var(--radius); padding:0; overflow:hidden; text-align:left; }
+.garment-option img { width:100%; aspect-ratio:1.25; object-fit:cover; display:block; }
+.garment-option span { display:block; padding:.65rem; }
+.category-note { margin:-.4rem 0 .8rem; color:var(--gray); font-size:.86rem; }
+.foot-photo-guide { position:absolute; inset:12% 18%; border:2px dashed #f5d6b1; border-radius:14px; pointer-events:none; opacity:.8; }

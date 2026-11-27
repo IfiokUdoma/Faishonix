@@ -84,7 +84,11 @@ async function authAction(request,client,secure){
     return json({error:'Enter your email and a password. New accounts require at least 8 characters.'},400);
   }
   const credentials={email,password};
-  const result=data.action==='signup'?await client.auth.signUp(credentials):await client.auth.signInWithPassword(credentials);
+  // The request has already passed the same-origin check in handle().
+  const emailRedirectTo=new URL('/?confirmed=1',request.url).href;
+  const result=data.action==='signup'
+    ?await client.auth.signUp({...credentials,options:{emailRedirectTo}})
+    :await client.auth.signInWithPassword(credentials);
   if(result.error){
     return json({error:data.action==='signin'?'Sign-in failed. Check your password and confirm your email.':'Could not create an account. Try signing in or wait and retry.'},400);
   }

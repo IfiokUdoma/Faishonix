@@ -49,3 +49,9 @@ TRY_ON_MODEL_VERSION=0513734a452173b8173e907e3a59d19a36266e55b48528559432bd21c7d
 ## Store integration
 
 Load the store SDK from your deployed origin and mount a sizing link with `mountSizeGuide(container, {origin, mode: 'body'})`. Use mode `shoes` for footwear. The guide opens in its own tab. The Shopify theme app block under `integrations/shopify/blocks` is a sizing link and the native vendor catalogue is available independently.
+
+### Email confirmation on Vercel
+
+In the dedicated Supabase project's **Authentication → URL Configuration**, set the **Site URL** to the live Faishonix origin. In **Redirect URLs**, allow that origin with `/?confirmed=1` and the branch preview URL with `/?confirmed=1` if using preview signup. The signup handler explicitly sends the current origin with that path. Ensure the confirmation template uses `{{ .ConfirmationURL }}`; hardcoded localhost links and templates that always use `{{ .SiteURL }}` will ignore the per-request destination. Test with a fresh confirmation email after configuration.
+
+Garment category photos are illustrative. The full suit, skirt, overcoat and traditional garment photos are sourced from Orjani, J.Crew, Target and Stitches Africa respectively. Published vendor photos are used for actual catalogue results.

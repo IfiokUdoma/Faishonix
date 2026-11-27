@@ -116,7 +116,10 @@ async function startFootScan(side){
   video.playsInline=true;
   video.muted=true;
   video.style.cssText='width:100%;height:100%;object-fit:contain';
-  area.append(video);
+  const guide=document.createElement('div');
+  guide.className='foot-photo-guide';
+  guide.setAttribute('aria-hidden','true');
+  area.append(video,guide);
   photo.onclick=()=>{
     if(video.readyState<2||!video.videoWidth){status.textContent='Camera is warming up. Try again.';return;}
     const canvas=document.createElement('canvas');
@@ -263,6 +266,25 @@ function productCard(product,onToggle){
     contents.append(chart);
   }
   contents.append(price,link);
+  if(!onToggle&&tryOnEnabled&&accountEmail){
+    const tryButton=document.createElement('button');
+    tryButton.className='mood-tag';
+    tryButton.type='button';
+    tryButton.textContent='Use in virtual try-on';
+    tryButton.onclick=async()=>{
+      tryButton.disabled=true;
+      try{
+        const response=await fetch(product.photo_url);
+        if(!response.ok)throw new Error('Photo unavailable');
+        const photo=await response.blob();
+        if(!['image/jpeg','image/png','image/webp'].includes(photo.type)||photo.size>2_097_152)throw new Error('Invalid photo');
+        loadGarmentPhoto(photo);
+        document.getElementById('tryon').scrollIntoView({behavior:'smooth'});
+      }catch{showToast('Could not load the vendor photo for try-on.');}
+      finally{tryButton.disabled=false;}
+    };
+    contents.append(tryButton);
+  }
   if(onToggle){
     const toggle=document.createElement('button');
     toggle.type='button';
@@ -302,6 +324,8 @@ const historyList=historySection.querySelector('ul');
 const historyDelete=document.getElementById('history-delete');
 const accountForm=document.getElementById('account-form');
 const accountStatus=document.getElementById('account-status');
+const confirmedEmail=new URLSearchParams(location.search).get('confirmed')==='1';
+if(confirmedEmail)location.hash='scan-history';
 const signOut=document.getElementById('signout');
 const vendorForm=document.getElementById('vendor-form');
 const vendorStatus=document.getElementById('vendor-status');
@@ -384,7 +408,7 @@ async function loadSession(){
     checkTryOnReady();
     accountForm.hidden=Boolean(accountEmail);
     signOut.hidden=!accountEmail;
-    accountStatus.textContent=accountEmail?'Signed in as '+accountEmail:'';
+    accountStatus.textContent=accountEmail?'Signed in as '+accountEmail:confirmedEmail?'Sign in with the email and password you registered.':'';
     if(accountEmail){
       historyConsent.disabled=false;
       historyConsent.checked=localStorage.getItem(consentKey())==='true';
