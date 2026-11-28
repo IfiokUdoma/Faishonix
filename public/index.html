@@ -404,6 +404,7 @@ footer{background:var(--dark);color:rgba(255,255,255,0.6);padding:48px;display:g
       <button class="btn-dark" type="submit">Place order request</button>
     </form>
     <p id="custom-fit-status" role="status"></p>
+    <p id="fit-preview-availability" role="status"></p>
     <section id="fit-preview" hidden></section>
   </section>
   <div class="scanner-layout">
@@ -1672,10 +1673,13 @@ function toggleShoeAsym(){
 }
 
 
-function lookupShoe(len,gender){
-  let m=SHOE_DATA.find(r=>len>=r[0]&&len<=r[1]&&r[2]===gender);
-  if(!m)m=SHOE_DATA.filter(r=>r[2]===gender).sort((a,b)=>Math.abs(a[0]-len)-Math.abs(b[0]-len))[0];
-  return m;
+function lookupShoe(length,gender){
+  const rounded=Math.round((length+Number.EPSILON)*10)/10;
+  const matches=SHOE_DATA.filter(row=>rounded>=row[0]&&rounded<=row[1]);
+  const selected=matches.find(row=>row[2]===gender);
+  if(selected)return {eu:selected[5],sizes:[['NG',selected[3]],['UK',selected[4]],['EU',selected[5]],['US',selected[6]]]};
+  const reference=matches[0];
+  return reference?{eu:reference[5],sizes:[['EU reference',reference[5]]],reference:true}:null;
 }
 
 const footWidths={left:null,right:null};
@@ -1684,25 +1688,26 @@ function runShoeScan(){
   if(shoeResultLocked)return;
   const gender=document.getElementById('shoe-gender').value;
   const feet=shoeAsym?['left','right']:['left'];
-  const sizes=feet.map(side=>footCaptures[side]);
-  if(sizes.some(length=>!length)){showToast('Measure each selected foot first.');return;}
-  const chart=SHOE_DATA.filter(row=>row[2]===gender);
-  if(sizes.some(length=>length<chart[0][0]||length>chart.at(-1)[1])){
-    showToast('This length is outside the general chart. Use the brand’s own size chart.');
-    return;
-  }
-  document.getElementById('shoe-grid').innerHTML=sizes.map((length,index)=>{
-    const size=lookupShoe(length,gender);
-    return ['NG','UK','EU','US'].map((label,i)=>`<div class="meas-item"><div class="meas-val">${size[i+3]}</div><div class="meas-label">${label}${shoeAsym?' · '+feet[index]:''}</div></div>`).join('');
+  const lengths=feet.map(side=>footCaptures[side]);
+  if(lengths.some(length=>!length)){showToast('Measure each selected foot first.');return;}
+  const results=lengths.map(length=>lookupShoe(length,gender));
+  document.getElementById('shoe-grid').innerHTML=results.map((result,index)=>{
+    const foot=shoeAsym?' · '+feet[index]:'';
+    if(!result)return `<div class="meas-item"><div class="meas-val">${lengths[index]} cm</div><div class="meas-label">Foot length${foot}</div></div>`;
+    return result.sizes.map(([label,value])=>`<div class="meas-item"><div class="meas-val">${value}</div><div class="meas-label">${label}${foot}</div></div>`).join('');
   }).join('');
-  document.getElementById('shoe-meas-text').textContent=sizes.map((length,i)=>`${shoeAsym?feet[i]+': ':''}${length} cm long${footWidths[feet[i]]?' × '+footWidths[feet[i]]+' cm wide':''}`).join(' · ');
-  document.getElementById('shoe-fit-note').textContent='General size guide. Check the brand’s foot-length chart and fit to the larger foot.';
+  document.getElementById('shoe-meas-text').textContent=lengths.map((length,i)=>`${shoeAsym?feet[i]+': ':''}${length} cm long${footWidths[feet[i]]?' × '+footWidths[feet[i]]+' cm wide':''}`).join(' · ');
+  const note=results.some(result=>!result)?'Foot length is available above. The Faishonix chart has no size for at least one measured foot. Use the brand’s length chart.':
+    results.some(result=>result.reference)?'EU reference from the alternate chart. Confirm the brand’s fit using your measured length.':
+    'General size guide. Check the brand’s foot-length chart and fit to the larger foot.';
+  document.getElementById('shoe-fit-note').textContent=note;
   document.getElementById('shoe-placeholder').style.display='none';
   document.getElementById('shoe-results-panel').classList.add('show');
   document.getElementById('shoe-results-panel').scrollIntoView({block:'nearest'});
   shoeResultLocked=true;
   document.getElementById('shoe-btn').disabled=true;
-  saveScan({item:'shoes',measurements:{left:sizes[0],right:sizes[1]??null,leftWidth:footWidths.left,rightWidth:shoeAsym?footWidths.right:null,size:lookupShoe(Math.max(...sizes),gender)[5]}});
+  const larger=results[lengths.indexOf(Math.max(...lengths))];
+  saveScan({item:'shoes',measurements:{left:lengths[0],right:lengths[1]??null,leftWidth:footWidths.left,rightWidth:shoeAsym?footWidths.right:null,size:larger?.eu??null}});
 }
 
 function handleGarment(e){

@@ -50,6 +50,6 @@ export function estimateFootOnA4(image){
   const length=(last-first+1)*29.7/paperHeight;
   const footWidth=maxSpan*21/paperWidth;
   const fill=darkCount/((last-first+1)*maxSpan);
-  if(length<20||length>28||footWidth<5||footWidth>13||fill<.5||fill>1||first<=top+edge||last>=bottom-edge)return null;
+  if(length<12||length>28||footWidth<5||footWidth>13||fill<.5||fill>1||first<=top+edge||last>=bottom-edge)return null;
   return {length:Number(length.toFixed(1)),width:Number(footWidth.toFixed(1))};
 }

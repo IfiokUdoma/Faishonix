@@ -94,13 +94,13 @@ async function startFootScan(side){
   area.replaceChildren();
   const controls=captureControls;
   controls.style.display='flex';
-  controls.innerHTML='<p aria-live="polite">Place your foot on white A4 paper on a dark floor. Hold the camera straight above the paper. A dark sock helps the app see the outline.</p><button type="button" id="foot-photo" disabled>Take photo</button><label>Measured length (cm) <input id="foot-manual" type="number" min="20" max="35" step="0.1" inputmode="decimal"></label><button type="button" id="foot-save">Use length</button>';
+  controls.innerHTML='<p aria-live="polite">Place your foot on white A4 paper on a dark floor. Hold the camera straight above the paper. A dark sock helps the app see the outline.</p><button type="button" id="foot-photo" disabled>Take photo</button><label>Measured length (cm) <input id="foot-manual" type="number" min="12" max="35" step="0.01" inputmode="decimal"></label><button type="button" id="foot-save">Use length</button>';
   const status=controls.querySelector('p');
   const photo=document.getElementById('foot-photo');
   const manual=document.getElementById('foot-manual');
   function accept(length,method,width){
-    if(!Number.isFinite(length)||length<20||length>35){status.textContent='Enter a foot length from 20 to 35 cm.';return;}
-    footCaptures[side]=Math.round(length*10)/10;
+    if(!Number.isFinite(length)||length<12||length>35){status.textContent='Enter a foot length from 12 to 35 cm.';return;}
+    footCaptures[side]=Math.round(length*100)/100;
     footWidths[side]=Number.isFinite(width)?width:null;
     const preview=document.createElement('button');
     preview.className='btn-dark';
@@ -153,11 +153,11 @@ async function startFootScan(side){
     sampleContext.drawImage(canvas,0,0,sample.width,sample.height);
     const automatic=estimator?.estimateFootOnA4(sampleContext.getImageData(0,0,sample.width,sample.height));
     if(automatic){
-      manual.value=automatic.length.toFixed(1);
+      manual.value=automatic.length.toFixed(2);
       status.textContent='Detected '+automatic.length+' cm long × '+automatic.width+' cm wide. Review the length and tap Use length, or mark the paper and foot to recalibrate.';
       document.getElementById('foot-save').onclick=()=>accept(manual.valueAsNumber,'Detected from A4 photo',manual.valueAsNumber===automatic.length?automatic.width:null);
     }else{
-      status.textContent='Could not isolate an outline. '+instructions[0];
+      status.textContent='Could not isolate the foot automatically. Tap four points on the photo to calculate length. '+instructions[0];
     }
     canvas.onclick=event=>{
       const bounds=canvas.getBoundingClientRect();
@@ -170,8 +170,8 @@ async function startFootScan(side){
       canvas.onclick=null;
       const length=(a,b)=>Math.hypot(points[a][0]-points[b][0],points[a][1]-points[b][1]);
       const estimate=length(2,3)*29.7/length(0,1);
-      if(!Number.isFinite(estimate)||estimate<20||estimate>35){status.textContent='The scale or landmarks are out of range. Retake or enter measured length.';return;}
-      manual.value=estimate.toFixed(1);
+      if(!Number.isFinite(estimate)||estimate<12||estimate>35){status.textContent='The scale or landmarks are out of range. Retake or enter measured length.';return;}
+      manual.value=estimate.toFixed(2);
       status.textContent='Review the estimate. For best results, keep the page and foot flat and the camera directly overhead.';
       document.getElementById('foot-save').onclick=()=>accept(manual.valueAsNumber,'A4 photo estimate');
     };
@@ -392,6 +392,13 @@ const customFit=document.getElementById('custom-fit');
 const fitForm=document.getElementById('custom-fit-form');
 const fitFormStatus=document.getElementById('custom-fit-status');
 const fitPhotoConsent=document.getElementById('fit-photo-consent');
+const fitPreviewAvailability=document.getElementById('fit-preview-availability');
+
+function updateFitPreviewAvailability(){
+  fitPhotoConsent.hidden=!hostedTryOnAvailable;
+  fitPreviewAvailability.textContent=hostedTryOnAvailable?'The selected garment will be rendered using your front scan after capture and photo consent.':
+    'Live try-on is unavailable for this account. Your fitting and order request are still available.';
+}
 const sequencePreview=document.getElementById('fit-preview');
 let previewGeneration=0;
 let previewedPhoto;
@@ -412,7 +419,7 @@ function openCustomFit(product){
   sequencePreview.hidden=true;
   sequencePreview.replaceChildren();
   fitForm.elements.photoConsent.checked=false;
-  fitPhotoConsent.hidden=!hostedTryOnAvailable;
+  updateFitPreviewAvailability();
   selectItem(product.category);
   document.getElementById('custom-fit-title').textContent=product.name+' · '+product.brand;
   const fields=new Set(ITEMS[product.category].fields);
@@ -617,7 +624,7 @@ async function loadHistory(generation=accountGeneration){
     historyList.replaceChildren(...scans.map(scan=>{
       const row=document.createElement('li');
       const date=new Date(scan.timestamp).toLocaleString();
-      row.textContent=`${date} · ${ITEMS[scan.item]?.label||'Shoes'} · ${scan.item==='shoes'?'EU ':''}${scan.measurements.size}`;
+      row.textContent=`${date} · ${ITEMS[scan.item]?.label||'Shoes'} · ${scan.item==='shoes'?(scan.measurements.size==null?scan.measurements.left+' cm':'EU '+scan.measurements.size):scan.measurements.size}`;
       return row;
     }));
     historyStatus.textContent=scans.length?'':'No saved scans yet.';
@@ -684,7 +691,7 @@ async function loadSession(){
     accountEmail=session.email;
     tryOnEnabled=session.tryOnEnabled;
     hostedTryOnAvailable=session.hostedTryOnEnabled===true;
-    fitPhotoConsent.hidden=!hostedTryOnAvailable;
+    updateFitPreviewAvailability();
     checkTryOnReady();
     accountForm.hidden=Boolean(accountEmail);
     signOut.hidden=!accountEmail;

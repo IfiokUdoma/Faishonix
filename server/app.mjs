@@ -110,8 +110,9 @@ async function scans(request,db){
   if(request.method!=='POST')return json({error:'Method not allowed.'},405);
   const input=await readJson(request,4096);
   const size=input?.measurements?.size;
+  const lengthOnly=input?.item==='shoes'&&size===null&&Number.isFinite(input.measurements.left)&&input.measurements.left>=12&&input.measurements.left<=35;
   if(typeof input?.item!=='string'||!/^[a-z][a-z_-]{1,24}$/.test(input.item)||
-    !['string','number'].includes(typeof size)||!/^(?:[A-Z]{1,5}|[2-6]XL|[0-9]{2})$/.test(String(size))){
+    (!lengthOnly&&(!['string','number'].includes(typeof size)||!/^(?:[A-Z]{1,5}|[2-6]XL|[0-9]{2})$/.test(String(size))))){
     return json({error:'Invalid scan result.'},400);
   }
   const clean={size};
