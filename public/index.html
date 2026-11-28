@@ -583,7 +583,8 @@ footer{background:var(--dark);color:rgba(255,255,255,0.6);padding:48px;display:g
 </div>
 
 <section class="section" id="scan-history" data-page="/account">
-  <h2 class="section-title">Your previous scans</h2>
+  <h2 class="section-title">Your account</h2>
+  <p class="section-sub">One account lets you shop and track orders. Create a vendor profile only if you also sell clothing.</p>
   <form id="account-form" class="account-form">
     <label>Email <input name="email" type="email" autocomplete="email" maxlength="254" required></label>
     <label>Password <input name="password" type="password" autocomplete="current-password" maxlength="128" required></label>
@@ -798,7 +799,7 @@ const ITEMS = {
   'activewear':  {label:'Activewear',         fields:['chest','waist','hips']},
   'traditional': {label:'Traditional Wear',   fields:['chest','shoulder','arm']},
 };
-const FL = {chest:'Chest/Bust',waist:'Waist',hips:'Hips',shoulder:'Shoulder',arm:'Arm Length',inseam:'Inseam',neck:'Neck'};
+const FL = {chest:'Chest/Bust',waist:'Waist',hips:'Hips',shoulder:'Shoulder',arm:'Arm Length',inseam:'Inseam',neck:'Neck',garment_length:'Garment length'};
 
 const SIZE_CHARTS = {
   MALE:[
@@ -1046,10 +1047,7 @@ function calculateRealBodyMeasurements(lms,heightCm,weightKg){
   sources.arm=arm?'Pose landmarks':'Low landmark visibility';
   sources.inseam=inseam?'Pose estimate':'Low landmark visibility';
   sources.neck='Proportion model';
-  const chart=SIZE_CHARTS[document.getElementById('gender').value==='male'?'MALE':'FEMALE'];
-  const relevant=ITEMS[selectedItem].fields.filter(field=>chart[0][field+'Max']);
-  const size=(chart.find(row=>relevant.every(field=>measurements[field]<=row[field+'Max']))||chart.at(-1)).size;
-  return {...measurements,size,sources};
+  return {...measurements,sources};
 }
 
 // ═══════════════════════════════════════
@@ -1065,42 +1063,54 @@ async function runBodyScan(lookupOnly=false){
   }
 
 
-  let result=null;
   const baseline=fallbackMeasurements(heightCm,weightKg,gender,bodyType);
-  if(!lookupOnly&&landmarks.front){
-    result=calculateRealBodyMeasurements(landmarks.front,heightCm,weightKg);
-    if(result){
-      for(const field of ITEMS[selectedItem].fields){
-        if(!Number.isFinite(result[field])||result[field]<=0){
-          result[field]=baseline[field];
-          result.sources[field]='Lookup estimate';
-        }
-      }
+  const camera=lookupOnly?null:calculateRealBodyMeasurements(landmarks.front,heightCm,weightKg);
+  const config=ITEMS[selectedItem];
+  const fields=[...config.fields];
+  const lengthRatio={'shirt-long':.40,'shirt-short':.39,dress:.58,jacket:.42,suit:.42,skirt:.35,
+    sweater:.39,coat:.51,activewear:.38,traditional:.48}[selectedItem];
+  const result={...baseline,sources:{}};
+  if(lengthRatio){
+    fields.push('garment_length');
+    result.garment_length=Math.round(heightCm*lengthRatio*10)/10;
+    result.sources.garment_length='Height-based style estimate';
+  }
+  for(const field of config.fields){
+    const value=camera?.[field];
+    const prior=baseline[field];
+    if(!Number.isFinite(value)||value<=0||!prior||Math.abs(value-prior)/prior>.20){
+      result.sources[field]=Number.isFinite(value)&&value>0?'Lookup estimate · scan differed substantially':'Lookup estimate';
+      continue;
+    }
+    result[field]=Math.round((prior*.4+value*.6)*10)/10;
+    result.sources[field]='Scan + body profile';
+  }
+  for(const [field,keys] of Object.entries({arm:['leftArm','rightArm'],inseam:['leftInseam','rightInseam']})){
+    for(const key of keys){
+      const value=camera?.[key];
+      if(Number.isFinite(value)&&Math.abs(value-baseline[field])/baseline[field]<=.20)result[key]=value;
     }
   }
-
-  const fromPose=Boolean(result);
-  if(!result){
-    // fallback to lookup table
-    result=baseline;
+  const fromPose=Boolean(camera);
+  if(config.fields.some(field=>result.sources[field]==='Scan + body profile')){
+    const chart=SIZE_CHARTS[gender==='male'?'MALE':'FEMALE'];
+    const relevant=config.fields.filter(field=>chart[0][field+'Max']);
+    if(relevant.length)result.size=(chart.find(row=>relevant.every(field=>result[field]<=row[field+'Max']))||chart.at(-1)).size;
   }
-
-
-  const config=ITEMS[selectedItem];
   document.getElementById('result-for').textContent='Size for: '+config.label;
   document.getElementById('result-size').textContent=result.size+' / General size chart';
   document.getElementById('result-acc').textContent='Estimate';
-  document.getElementById('meas-grid').innerHTML=config.fields.map(field=>{
-    const sides=asym&&fromPose&&field==='arm'
+  document.getElementById('meas-grid').innerHTML=fields.map(field=>{
+    const sides=asym&&fromPose&&field==='arm'&&(result.leftArm||result.rightArm)
       ? [['Left sleeve',result.leftArm],['Right sleeve',result.rightArm]]
-      : asym&&fromPose&&field==='inseam'
+      : asym&&fromPose&&field==='inseam'&&(result.leftInseam||result.rightInseam)
         ? [['Left inseam',result.leftInseam],['Right inseam',result.rightInseam]]
         : [[FL[field],result[field]]];
     return sides.map(([label,value])=>`<div class="meas-item"><div class="meas-val">${value ?? '—'}<span> cm</span></div><div class="meas-label">${label}</div><small>${result.sources?.[field]||'Lookup estimate'}</small></div>`).join('');
   }).join('');
 
   const fieldsStr=config.fields.map(f=>FL[f].toLowerCase()).join(', ');
-  document.getElementById('fit-note').textContent=`For a ${config.label.toLowerCase()}, your ${fieldsStr} ${config.fields.length>1?'are':'is'} the key measurements. ${fromPose?'Estimated from pose landmarks and your height. Circumferences use captured silhouettes when usable, with modelled depth as a fallback. ':'Based on your height, weight, and body type. '}Suggested size: ${result.size}. Check the retailer’s chart before ordering.`;
+  document.getElementById('fit-note').textContent=`For a ${config.label.toLowerCase()}, your ${fieldsStr} ${config.fields.length>1?'are':'is'} the key measurements. ${fromPose?'The scan and body profile are compared for each dimension. Verify the estimates with a tape before ordering. ':'Based on your height, weight, and body type. '}Suggested size: ${result.size}. Check the retailer’s chart before ordering.`;
 
   document.getElementById('results-placeholder').style.display='none';
   document.getElementById('results-panel').classList.add('show');
@@ -1114,6 +1124,7 @@ async function runBodyScan(lookupOnly=false){
   }
 
   prefillCustomFit(selectedItem,result,fromPose);
+  void getOutfitSuggestions();
 
   // Save only when account history is enabled.
   saveScan({item:selectedItem,measurements:result});

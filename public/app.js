@@ -352,11 +352,18 @@ function renderStyleCards(container,items){
 }
 
 async function getOutfitSuggestions(){
-  try {
-    const gender=document.getElementById('gender').value;
-    renderStyleCards(document.getElementById('outfit-grid'),await suggest('casual, work, wedding',gender));
-    document.getElementById('outfit-section').style.display='block';
-  }catch(error){showToast(error.message);}
+  const item=selectedItem;
+  const output=document.getElementById('outfit-grid');
+  document.getElementById('outfit-section').style.display='block';
+  output.textContent='Looking for published garments…';
+  try{
+    const categories=['trouser','shorts','skirt'].includes(item)?['shirt-short','jacket']:['trouser','jacket'];
+    const groups=await Promise.all(categories.map(category=>api('/api/wardrobe',{category})));
+    if(item!==selectedItem)return;
+    const products=groups.flatMap(group=>group.products).filter(product=>product.id!==fitProduct?.id);
+    output.replaceChildren(...products.slice(0,4).map(product=>productCard(product)));
+    if(!products.length)output.textContent='No published complementary garments yet. Browse Shop for the available catalogue.';
+  }catch(error){if(item===selectedItem)output.textContent=error.message;}
 }
 
 async function getTryOnPairings(){
@@ -428,14 +435,14 @@ function openCustomFit(product){
 }
 
 function prefillCustomFit(category,result,fromPose){
-  if(fitProduct?.category!==category||!fromPose)return;
+  if(fitProduct?.category!==category)return;
   for(const input of document.querySelectorAll('#custom-fit-fields input')){
     const value=result[input.name];
-    if(input.value===''&&Number.isFinite(value)&&result.sources?.[input.name]!=='Lookup estimate')input.value=String(Math.round(value*10)/10);
+    if(input.value===''&&Number.isFinite(value))input.value=String(Math.round(value*10)/10);
   }
   fitFormStatus.textContent='Scan estimates are ready for review. Check them with a tape and fill in the remaining fields.';
   customFit.scrollIntoView({behavior:'smooth'});
-  continueFitWithPreview(category);
+  if(fromPose)continueFitWithPreview(category);
 }
 
 async function createHostedPreview(person,productId){
@@ -748,6 +755,17 @@ document.addEventListener('keydown',event=>{
 const pagePaths=new Set([...document.querySelectorAll('[data-page]')].map(section=>section.dataset.page));
 const legacyPages={'#scanner':'/body-scan','#shoe-scan':'/foot-scan','#vendor':'/vendor','#wardrobe':'/wardrobe','#tryon':'/try-on','#fit-requests':'/orders','#scan-history':'/account'};
 let pagePath;
+async function loadWardrobeCatalogue(){
+  const status=document.getElementById('catalogue-status');
+  const list=document.getElementById('catalogue-results');
+  try{
+    const {products}=await api('/api/wardrobe',{browse:true});
+    if(document.getElementById('wardrobe-query').value.trim())return;
+    list.replaceChildren(...products.map(product=>productCard(product)));
+    status.textContent=products.length?'Browse published garments or search by occasion.':'No published garments yet. Vendor listings will appear here when published.';
+  }catch(error){if(!document.getElementById('wardrobe-query').value.trim())status.textContent=error.message;}
+}
+
 async function loadShop(){
   const list=document.getElementById('shop-results');
   const status=document.getElementById('shop-status');
@@ -771,6 +789,7 @@ function displayPage(path,push=false){
   }
   window.scrollTo(0,0);
   if(path==='/shop')loadShop();
+  if(path==='/wardrobe'&&!document.getElementById('wardrobe-query').value.trim())loadWardrobeCatalogue();
   if(path==='/body-scan'){
     vision??=initVisionSystem();
     loadScannerCatalogue(selectedItem);

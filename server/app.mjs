@@ -4,7 +4,7 @@ import {styleSuggestions} from '../style.mjs';
 
 const bucket='vendor-photos';
 const researchVersion='0513734a452173b8173e907e3a59d19a36266e55b48528559432bd21c7d7e985';
-const measurements=['chest','waist','hips','shoulder','arm','inseam','neck','leftArm','rightArm','leftInseam','rightInseam','left','right','leftWidth','rightWidth'];
+const measurements=['chest','waist','hips','shoulder','arm','inseam','neck','leftArm','rightArm','leftInseam','rightInseam','left','right','leftWidth','rightWidth','garment_length'];
 const imagePattern=/^data:image\/(?:jpeg|png|webp);base64,[A-Za-z0-9+/]+={0,2}$/;
 const uuid=/^[a-f0-9]{8}-(?:[a-f0-9]{4}-){3}[a-f0-9]{12}$/i;
 const jobOwners=new Map();
@@ -218,7 +218,7 @@ async function fitRequests(request,db,user){
   const {data:product,error:lookupError}=await db.from('vendor_products').select('id,vendor_id,category').eq('id',input.productId).eq('published',true).maybeSingle();
   if(lookupError)throw lookupError;
   if(!product||!Object.hasOwn(fitFields,product.category))return json({error:'This listing does not offer made-to-measure requests.'},404);
-  if(product.vendor_id===user.id)return json({error:'Use a shopper account to request this garment.'},400);
+  if(product.vendor_id===user.id)return json({error:'You own this listing. Sign out and use a different email to test a purchase from your own shop. Your existing account can order from other vendors.'},400);
   const dimensions=Object.fromEntries(fitFields[product.category].map(field=>[field,input.measurements?.[field]]));
   if(Object.values(dimensions).some(value=>!Number.isFinite(value)||value<1||value>300))return json({error:'Enter all required dimensions in centimetres.'},400);
   const {error}=await db.from('fit_requests').insert({
