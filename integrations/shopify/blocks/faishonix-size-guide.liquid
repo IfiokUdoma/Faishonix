@@ -1,0 +1,18 @@
+{% if block.settings.faishonix_url != blank %}
+  <div class="faishonix-size-guide" {{ block.shopify_attributes }}>
+    <a href="{{ block.settings.faishonix_url | escape }}" target="_blank" rel="noopener noreferrer">
+      {{ block.settings.label | escape }}
+    </a>
+  </div>
+{% endif %}
+
+{% schema %}
+{
+  "name": "Faishonix size guide",
+  "target": "section",
+  "settings": [
+    { "type": "url", "id": "faishonix_url", "label": "Faishonix sizing page URL" },
+    { "type": "text", "id": "label", "label": "Button text", "default": "Find my size" }
+  ]
+}
+{% endschema %}

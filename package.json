@@ -1,0 +1,17 @@
+{
+  "name": "faishonix-pilot",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "node scripts/prepare-vision.mjs",
+    "predev": "npm run build",
+    "dev": "node scripts/dev.mjs"
+  },
+  "dependencies": {
+    "@mediapipe/tasks-vision": "0.10.14",
+    "@supabase/supabase-js": "2.119.2"
+  },
+  "engines": {
+    "node": "24.x"
+  }
+}
